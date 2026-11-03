@@ -497,8 +497,22 @@ function deckInfoView(d){
     <div class="kv"><span>Cards</span><span>${st.n}</span></div>
     <div class="kv"><span>Value</span><span>${money(st.val)}</span></div>
     <div class="bar" style="margin-top:14px"><button class="btn primary" data-a="importdeck">Import list</button><button class="btn" data-a="copydeck">Copy list</button><button class="btn" data-a="renamedeck">Rename</button><button class="btn danger" data-a="deletedeck">Delete deck</button></div>
+    <h3>Collection</h3>
+    <p class="sub">Mark this deck's cards as owned, using the exact printings in the deck. Foil status isn't tracked in decks, so they're added as normal copies.</p>
+    <div class="bar"><button class="btn" data-a="deck2coll" data-mode="missing">Add cards I'm missing</button><button class="btn" data-a="deck2coll" data-mode="all">Add every card</button></div>
     <h3>Cards you don't own${miss.length?` · est. ${money(cost)}`:''}</h3>
     ${miss.length?miss.map(m=>`<div class="kv"><span style="color:var(--ink)">${m.l}× ${esc(m.name)}</span><span>${money(m.p)}</span></div>`).join(''):`<p class="sub">${st.n?'You own every card in this deck.':'Nothing to check yet.'}</p>`}`;
+}
+function deckToCollection(d,mode){
+  const plan=[];
+  if(mode==='all'){for(const e of d.cards)if(S.cards.has(e.id))plan.push({id:e.id,qty:e.qty});}
+  else{
+    const own=ownedByName(),left=new Map();
+    for(const e of d.cards){const c=S.cards.get(e.id);if(c)left.set(c.name,(left.has(c.name)?left.get(c.name):0)+e.qty);}
+    for(const [n,q] of left)left.set(n,Math.max(0,q-(own.get(n)||0)));
+    for(const e of d.cards){const c=S.cards.get(e.id);if(!c)continue;const r=left.get(c.name)||0;const add=Math.min(e.qty,r);if(add>0){plan.push({id:e.id,qty:add});left.set(c.name,r-add);}}
+  }
+  return plan;
 }
 function deckText(d){
   const line=e=>{const c=S.cards.get(e.id);return c?`${e.qty} ${c.name} (${c.set.toUpperCase()}) ${c.cn}`:null;};
@@ -733,6 +747,10 @@ document.addEventListener('click',async ev=>{
     case 'copydeck':{const t=deckText(deckById(S.deckId));try{await navigator.clipboard.writeText(t);toast('Deck list copied');}catch{download('deck.txt',t,'text/plain');}break;}
     case 'renamedeck':{const d=deckById(S.deckId);const n=prompt('Deck name',d.name);if(n&&n.trim()){d.name=n.trim().slice(0,60);saveDeck(d);renderDeck();}break;}
     case 'deletedeck':{const d=deckById(S.deckId);if(confirm('Delete "'+d.name+'"? Your collection is not affected.')){S.decks=S.decks.filter(x=>x!==d);idb.del('decks',d.id);S.target=S.target===d.id?null:S.target;renderDeckList();scrollTo(0,0);}break;}
+    case 'deck2coll':{const d=deckById(S.deckId),plan=deckToCollection(d,el.dataset.mode),n=plan.reduce((a,x)=>a+x.qty,0);
+      if(!n){toast(el.dataset.mode==='all'?'This deck is empty':'You already own every card in this deck');break;}
+      if(confirm('Add '+n+' card'+(n===1?'':'s')+' from "'+d.name+'" to your collection?')){plan.forEach(x=>collAdd(x.id,false,x.qty));toast('Added '+n+' card'+(n===1?'':'s')+' to your collection');renderDeck();}
+      break;}
     case 'importdeck':openImportDeck();break;
     case 'doimport':doImportDeck();break;
     case 'refresh':refreshAll(false);renderSync();break;
