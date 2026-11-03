@@ -117,7 +117,7 @@ textarea{padding:10px 14px;min-height:150px;resize:vertical}
 /* bottom nav */
 nav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:flex;padding:0 max(0px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(0px,env(safe-area-inset-left))}
 nav button{flex:1;border:0;background:none;padding:8px 0 8px;font-size:12px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px}
-nav .pill{width:60px;height:30px;border-radius:15px;display:grid;place-items:center;transition:background .15s}
+nav .pill{width:56px;height:30px;border-radius:15px;display:grid;place-items:center;transition:background .15s}
 nav button.on{color:var(--accent)}
 nav button.on .pill{background:var(--accent-soft)}
 
@@ -129,6 +129,18 @@ dialog::backdrop{background:#000a}
 .oracle{white-space:pre-line}
 .ctl{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cam{position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:3/4;width:min(100%,46vh);margin:12px auto 0}
+.cam video{width:100%;height:100%;object-fit:cover;display:block}
+.guide{position:absolute;left:50%;top:50%;height:88%;aspect-ratio:5/7;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.9);border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.5);pointer-events:none}
+.gname{position:absolute;left:5%;width:72%;top:3.5%;height:8%;border:2px solid #f5a31a;border-radius:6px}
+.camoff{position:absolute;inset:0;display:grid;place-items:center;color:#cfcfd4;text-align:center;padding:24px;font-size:14px}
+.scanres{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;margin-top:6px}
+.scanres .thumb{width:84px;aspect-ratio:488/680;border-radius:6px;background:var(--raise);flex:none;display:block;border:0;padding:0}
+.scanres .thumb img{width:100%;height:100%;border-radius:6px;display:block}
+.pts{display:flex;gap:10px;overflow-x:auto;padding:6px 2px 10px}
+.pt{flex:none;width:92px;background:none;border:2px solid transparent;border-radius:10px;padding:3px;text-align:left;font-size:12px;line-height:1.25}
+.pt img{width:100%;aspect-ratio:488/680;border-radius:6px;display:block;background:var(--raise)}
+.pt.on{border-color:var(--accent)}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:20;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.on{opacity:1}
 .foot{margin-top:28px;font-size:12px;color:var(--muted)}
@@ -215,9 +227,10 @@ const IC={
   decks:svg('<rect x="3.5" y="6" width="11" height="15" rx="2"/><path d="M8 3h9a3 3 0 013 3v11"/>'),
   data:svg('<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>'),
   chart:svg('<path d="M5 20V11M12 20V4M19 20v-6"/>'),
-  info:svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>')
+  info:svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>'),
+  scan:svg('<path d="M4 8a2 2 0 012-2h2l1.5-2h5L16 6h2a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><circle cx="12" cy="12.5" r="3.5"/>')
 };
-const NAV=[['search','Search',IC.search],['coll','Collection',IC.coll],['decks','Decks',IC.decks],['sync','Data',IC.data]];
+const NAV=[['search','Search',IC.search],['coll','Collection',IC.coll],['decks','Decks',IC.decks],['scan','Scan',IC.scan],['sync','Data',IC.data]];
 function sym(code){const c=code.toLowerCase().replace(/\//g,'');const a={t:'tap',q:'untap'};const k=a[c]||c;
   return /^[a-z0-9]+$/.test(k)?`<i class="ms ms-${k} ms-cost ms-shadow" title="{${esc(code)}}"></i>`:`{${esc(code)}}`;}
 const manaIcons=s=>String(s||'').replace(/\{([^}]+)\}/g,(m,c)=>sym(c));
@@ -244,7 +257,8 @@ const idb={
 };
 
 const S={cards:new Map(),coll:new Map(),decks:[],lastRefresh:0,tab:'search',deckId:null,dtab:'cards',target:null,busy:false,collQ:'',collSort:'name',collLimit:100,
-  search:{q:'',prints:false,results:[],next:null,total:0,loading:false,err:'',empty:false,seq:0}};
+  search:{q:'',prints:false,results:[],next:null,total:0,loading:false,err:'',empty:false,seq:0},
+  scan:{stream:null,workerP:null,busy:false,auto:false,card:null,cands:[],prints:null,printsBusy:false,msg:'',log:[]}};
 
 /* ---------- cards & prices ---------- */
 const CARD_V=2;
@@ -339,9 +353,9 @@ function setHeader(o){
 
 /* ---------- views ---------- */
 function buildNav(){$('#nav').innerHTML=NAV.map(([k,l,i])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}"><span class="pill">${i}</span>${l}</button>`).join('');}
-function setTab(t){S.tab=t;S.deckId=null;buildNav();render();scrollTo(0,0);}
-function render(){({search:renderSearch,coll:renderColl,decks:renderDecks,sync:renderSync})[S.tab]();}
-function refreshView(){const t=S.tab;if(t==='search')renderResults();else if(t==='coll')renderCollList();else if(t==='decks')renderDecks();else renderSync();}
+function setTab(t){stopCamera();S.tab=t;S.deckId=null;buildNav();render();scrollTo(0,0);}
+function render(){({search:renderSearch,coll:renderColl,decks:renderDecks,scan:renderScan,sync:renderSync})[S.tab]();}
+function refreshView(){const t=S.tab;if(t==='search')renderResults();else if(t==='coll')renderCollList();else if(t==='decks')renderDecks();else if(t==='scan')updateScanUI();else renderSync();}
 
 /* search */
 function renderSearch(){
@@ -510,7 +524,7 @@ function renderSync(){
     <p class="sub">Everything lives only on this phone. Export a backup now and then.</p>
     <div class="bar"><button class="btn" data-a="exportcsv">Export collection CSV</button><button class="btn" data-a="exportjson">Back up everything</button></div>
     <div class="bar"><label class="sub" for="jsonfile">Restore a backup</label><input type="file" id="jsonfile" accept=".json,application/json"></div>
-    <p class="foot">Card data and images from Scryfall. Mana and card type icons from the Mana font by Andrew Gioia (MIT). Pocket Binder is unofficial fan content and is not approved or endorsed by Wizards of the Coast. Magic: The Gathering is a trademark of Wizards of the Coast LLC.</p>`;
+    <p class="foot">Card data and images from Scryfall. Mana and card type icons from the Mana font by Andrew Gioia (MIT). Camera text recognition by Tesseract.js (Apache 2.0). Pocket Binder is unofficial fan content and is not approved or endorsed by Wizards of the Coast. Magic: The Gathering is a trademark of Wizards of the Coast LLC.</p>`;
 }
 async function importCSV(file){
   if(S.busy)return;S.busy=true;const replace=$('#impmode')&&$('#impmode').value==='replace';
@@ -568,6 +582,127 @@ function renderSheet(){
   if($('#sboard'))$('#sboard').value=sheetBoard;
 }
 
+
+/* ---------- scan ---------- */
+const TESS_VER='5.1.1';
+const LANG_PATH='https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int';
+function loadScript(src){return new Promise((res,rej)=>{const el=document.createElement('script');el.src=src;el.onload=res;el.onerror=()=>rej(new Error('Could not load text recognition. Check your connection.'));document.head.appendChild(el);});}
+function getWorker(){
+  const sc=S.scan;
+  if(!sc.workerP){
+    sc.workerP=(async()=>{
+      if(!window.Tesseract)await loadScript(`https://cdn.jsdelivr.net/npm/tesseract.js@${TESS_VER}/dist/tesseract.min.js`);
+      const w=await window.Tesseract.createWorker('eng',1,{langPath:LANG_PATH,logger:()=>{}});
+      await w.setParameters({tessedit_pageseg_mode:'7',user_defined_dpi:'300'});
+      return w;
+    })().catch(e=>{sc.workerP=null;throw e;});
+  }
+  return sc.workerP;
+}
+async function startCamera(){
+  const sc=S.scan;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){sc.msg='This browser does not allow camera access here.';updateScanUI();return;}
+  try{
+    sc.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+    const v=$('#vid');if(v){v.srcObject=sc.stream;v.play().catch(()=>{});}
+    sc.msg='Fit the whole card in the white frame, with its name inside the amber box.';
+    updateScanUI();
+    getWorker().catch(e=>{sc.msg=e.message;updateScanUI();});
+  }catch(e){
+    sc.stream=null;
+    sc.msg=e&&e.name==='NotAllowedError'?'Camera access was blocked. Allow the camera for this site in Chrome settings, then try again.':'Could not start the camera'+(e&&e.name?' ('+e.name+')':'')+'.';
+    updateScanUI();
+  }
+}
+function stopCamera(){const sc=S.scan;sc.auto=false;if(sc.stream){sc.stream.getTracks().forEach(t=>t.stop());sc.stream=null;}}
+function stripRect(v){
+  const g=$('.gname'),vr=v.getBoundingClientRect(),gr=g.getBoundingClientRect();
+  const sc=Math.max(vr.width/v.videoWidth,vr.height/v.videoHeight);
+  const offX=(v.videoWidth*sc-vr.width)/2,offY=(v.videoHeight*sc-vr.height)/2;
+  let x=(gr.left-vr.left+offX)/sc,y=(gr.top-vr.top+offY)/sc,w=gr.width/sc,h=gr.height/sc;
+  x=Math.max(0,x);y=Math.max(0,y);w=Math.min(w,v.videoWidth-x);h=Math.min(h,v.videoHeight-y);
+  return {x,y,w,h};
+}
+function prepCanvas(v){
+  const r=stripRect(v),W=Math.min(900,Math.round(r.w*2)),H=Math.round(r.h*W/r.w);
+  const c=document.createElement('canvas');c.width=W;c.height=H;
+  const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(v,r.x,r.y,r.w,r.h,0,0,W,H);
+  const im=x.getImageData(0,0,W,H),d=im.data,hist=new Uint32Array(256);let sum=0;
+  for(let i=0;i<d.length;i+=4){const g=Math.round(.299*d[i]+.587*d[i+1]+.114*d[i+2]);d[i]=g;hist[g]++;sum+=g;}
+  const n=d.length/4,mean=sum/n;let a=0,lo=0,hi=255;
+  for(let i=0;i<256;i++){a+=hist[i];if(a>=n*.02){lo=i;break;}}a=0;
+  for(let i=0;i<256;i++){a+=hist[i];if(a>=n*.98){hi=i;break;}}
+  if(hi-lo<10)hi=lo+10;
+  const inv=mean<115;
+  for(let i=0;i<d.length;i+=4){let g=Math.max(0,Math.min(255,(d[i]-lo)*255/(hi-lo)));if(inv)g=255-g;d[i]=d[i+1]=d[i+2]=g;}
+  x.putImageData(im,0,0);
+  const out=document.createElement('canvas');out.width=W+40;out.height=H+40;
+  const ox=out.getContext('2d');ox.fillStyle='#fff';ox.fillRect(0,0,out.width,out.height);ox.drawImage(c,20,20);
+  return out;
+}
+function cleanRead(t){
+  const w=String(t||'').replace(/[^A-Za-zÀ-ſ ,'’\-]/g,' ').replace(/’/g,"'").split(/\s+/).filter(Boolean);
+  while(w.length>1&&w[0].length===1&&!/^[aAiI]$/.test(w[0]))w.shift();
+  while(w.length>1&&w[w.length-1].length===1)w.pop();
+  return w.join(' ');
+}
+async function lookupName(text){
+  try{return {card:remember([await sf('/cards/named?fuzzy='+encodeURIComponent(text))],false)[0]};}
+  catch(e){
+    if(e.status!==404&&e.status!==400)throw e;
+    try{const a=await sf('/cards/autocomplete?q='+encodeURIComponent(text));return {cands:(a.data||[]).slice(0,5)};}catch(e2){if(e2.status&&e2.status<500)return {cands:[]};throw e2;}
+  }
+}
+async function scanOnce(auto){
+  const sc=S.scan,v=$('#vid');if(sc.busy||!sc.stream||!v||!v.videoWidth)return;
+  sc.busy=true;if(!auto)sc.msg='Reading…';updateScanUI();
+  try{
+    const worker=await getWorker();
+    const {data}=await worker.recognize(prepCanvas(v));
+    const text=cleanRead(data.text);
+    if(text.length<3){if(!auto)sc.msg='Could not read a name. Line the name up in the amber box and hold steady.';return;}
+    const r=await lookupName(text);
+    if(r.card){sc.card=r.card;sc.cands=[];sc.prints=null;sc.msg='';}
+    else{sc.card=null;sc.cands=r.cands||[];sc.msg=sc.cands.length?'Not sure. Did you mean one of these?':(auto?'':'No card found for “'+text+'”. Try again.');}
+  }catch(e){sc.msg=navigator.onLine?(e.message||'Scan failed.'):'No connection. Scanning needs the internet to look cards up.';sc.auto=false;}
+  finally{sc.busy=false;updateScanUI();}
+}
+async function autoLoop(){const sc=S.scan;while(sc.auto&&sc.stream&&S.tab==='scan'){if(!sc.busy&&!sc.card)await scanOnce(true);await sleep(1000);}}
+async function loadPrints(){
+  const sc=S.scan,c=sc.card;if(!c)return;sc.printsBusy=true;updateScanUI();
+  try{const j=await sf('/cards/search?q='+encodeURIComponent('!"'+c.name+'"')+'&unique=prints&order=released&dir=desc');sc.prints=remember(j.data,false);}
+  catch(e){sc.prints=[];sc.msg='Could not load printings.';}
+  sc.printsBusy=false;updateScanUI();
+}
+function scanDone(label){const sc=S.scan;toast(label);sc.card=null;sc.cands=[];sc.prints=null;sc.msg='';updateScanUI();}
+function renderScan(){
+  setHeader({title:'Scan'});
+  $('#view').innerHTML=`<div class="cam"><video id="vid" playsinline muted autoplay></video><div class="guide"><i class="gname"></i></div><div class="camoff" id="camoff">Scan cards with your camera to add them to your collection.<br>The name is read on this phone, then looked up on Scryfall.</div></div>
+    <div class="bar" id="camctl" style="justify-content:center"></div><p id="scanmsg" class="sub" style="text-align:center"></p><div id="scanres"></div>`;
+  if(S.scan.stream){$('#vid').srcObject=S.scan.stream;}
+  updateScanUI();
+}
+function updateScanUI(){
+  const sc=S.scan,ctl=$('#camctl');if(!ctl)return;
+  const on=!!sc.stream,res=$('#scanres');
+  $('#camoff').hidden=on;
+  ctl.innerHTML=on?`<button class="btn primary" data-a="scanshot" ${sc.busy?'disabled':''}>${sc.busy?'Reading…':'Scan card'}</button><button class="chip" data-a="scanauto" aria-pressed="${sc.auto}">Auto</button><button class="btn small" data-a="scanstop">Stop camera</button>`:`<button class="btn primary" data-a="scanstart">Start camera</button>`;
+  $('#scanmsg').textContent=sc.msg||'';
+  let h='';
+  const c=sc.card;
+  if(c){
+    const n=owned(c.id),d=S.target&&deckById(S.target);
+    h+=`<div class="scanres"><button class="thumb" data-a="scanopen" aria-label="Card details"><img src="${esc(c.img)}" alt=""></button><div class="rmain" style="min-width:0"><b style="white-space:normal">${esc(c.name)}</b><div class="line">${costHTML(c.mana)}</div><div class="sub">${esc(c.set_name)} · ${esc(c.set.toUpperCase())} #${esc(c.cn)}</div><div class="sub">${money(unitPrice(c,false))}${n?` · you own ${n}`:''}</div></div></div>
+    <div class="bar"><button class="btn primary" data-a="scanadd" data-foil="0">Add to collection</button><button class="btn" data-a="scanadd" data-foil="1">Add foil</button>${d?`<button class="btn" data-a="scandeck">Add to ${esc(d.name)}</button>`:''}</div>
+    <div class="bar"><button class="btn small" data-a="scanprints" ${sc.printsBusy?'disabled':''}>${sc.printsBusy?'Loading…':'Change printing'}</button><button class="btn small" data-a="scanskip">Not this card</button></div>`;
+    if(sc.prints&&sc.prints.length)h+=`<div class="pts">${sc.prints.map(p=>`<button class="pt${p.id===c.id?' on':''}" data-a="scanpick" data-id="${p.id}"><img src="${esc(p.img)}" alt="" loading="lazy"><b>${esc(p.set.toUpperCase())} #${esc(p.cn)}</b><br><span class="sub">${money(unitPrice(p,false))}</span></button>`).join('')}</div>`;
+  }else if(sc.cands.length){
+    h+=`<div class="bar" style="justify-content:center">${sc.cands.map(n=>`<button class="chip" data-a="scanname" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
+  }
+  if(sc.log.length)h+=`<div class="bar" style="justify-content:center"><span class="sub">Added this session: ${sc.log.length}</span><button class="btn small" data-a="scanundo">Undo last</button></div>`;
+  res.innerHTML=h;
+}
+
 /* ---------- events ---------- */
 document.addEventListener('click',async ev=>{
   const nav=ev.target.closest('nav button');if(nav){setTab(nav.dataset.tab);return;}
@@ -601,6 +736,18 @@ document.addEventListener('click',async ev=>{
     case 'importdeck':openImportDeck();break;
     case 'doimport':doImportDeck();break;
     case 'refresh':refreshAll(false);renderSync();break;
+    case 'scanstart':startCamera();break;
+    case 'scanstop':stopCamera();updateScanUI();break;
+    case 'scanshot':scanOnce(false);break;
+    case 'scanauto':S.scan.auto=!S.scan.auto;if(S.scan.auto)autoLoop();updateScanUI();break;
+    case 'scanopen':if(S.scan.card)openCard(S.scan.card.id);break;
+    case 'scanadd':{const c=S.scan.card,foil=el.dataset.foil==='1';if(c){collAdd(c.id,foil,1);S.scan.log.push({id:c.id,foil});scanDone('Added '+c.name+(foil?' (foil)':''));}break;}
+    case 'scandeck':{const c=S.scan.card,d=S.target&&deckById(S.target);if(c&&d){deckAdd(d,c.id,'main',1);scanDone('Added '+c.name+' to '+d.name);}break;}
+    case 'scanskip':scanDone('');break;
+    case 'scanprints':loadPrints();break;
+    case 'scanpick':{const p=S.cards.get(id);if(p){S.scan.card=p;updateScanUI();}break;}
+    case 'scanname':{try{S.scan.msg='';S.scan.card=remember([await sf('/cards/named?exact='+encodeURIComponent(el.dataset.name))],false)[0];S.scan.cands=[];S.scan.prints=null;}catch(e){S.scan.msg='Could not look that up.';}updateScanUI();break;}
+    case 'scanundo':{const l=S.scan.log.pop();if(l){collAdd(l.id,l.foil,-1);toast('Removed last scan');}updateScanUI();break;}
     case 'exportcsv':exportCSV();break;
     case 'exportjson':exportJSON();break;
   }
@@ -660,6 +807,7 @@ async function load(){
   // Refresh once a day, and right away if saved cards are missing newer fields (art, colors).
   const stale=referencedIds().some(id=>{const c=S.cards.get(id);return !c||c.v!==CARD_V;});
   if(navigator.onLine&&(stale||Date.now()-S.lastRefresh>864e5))refreshAll(true);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();if(S.tab==='scan')updateScanUI();});
   addEventListener('online',()=>{if(Date.now()-S.lastRefresh>864e5)refreshAll(true);});
 })();
 </script>
