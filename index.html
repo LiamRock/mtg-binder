@@ -146,6 +146,8 @@ function parseDecklist(text){
   const out=[];let board='main';
   for(const raw of text.split(/\r?\n/)){
     let line=raw.trim(); if(!line||line.startsWith('//')||line.startsWith('#')) continue;
+    const hm=line.match(/^\[(.+)\]$/);
+    if(hm){const n=hm[1].trim().toLowerCase();board=(n==='commander'||n==='commanders')?'commander':n==='sideboard'?'side':(n==='maybeboard'||n==='considering')?'skip':'main';continue;}
     const h=line.replace(/:$/,'').toLowerCase();
     if(h==='sideboard'||h==='sb'){board='side';continue;}
     if(h==='commander'||h==='commanders'){board='commander';continue;}
