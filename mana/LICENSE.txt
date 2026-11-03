@@ -1,0 +1,3 @@
+Mana font and CSS (c) Andrew Gioia, MIT License. https://github.com/andrewgioia/mana
+Magic: The Gathering and its symbols are property of Wizards of the Coast LLC.
+This is unofficial fan content, not approved or endorsed by Wizards of the Coast.
