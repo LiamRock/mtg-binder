@@ -141,6 +141,12 @@ dialog::backdrop{background:#000a}
 .pt{flex:none;width:92px;background:none;border:2px solid transparent;border-radius:10px;padding:3px;text-align:left;font-size:12px;line-height:1.25}
 .pt img{width:100%;aspect-ratio:488/680;border-radius:6px;display:block;background:var(--raise)}
 .pt.on{border-color:var(--accent)}
+.sug{margin:-2px 0 10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.sug:empty{display:none}
+.sug button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;padding:0 14px;min-height:46px;font-size:15px}
+.sug button:last-child{border-bottom:0}
+.sug button:active{background:var(--raise)}
+.sug b{color:var(--accent)}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:20;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.on{opacity:1}
 .foot{margin-top:28px;font-size:12px;color:var(--muted)}
@@ -444,7 +450,8 @@ function renderDeckList(){
   const rows=[...S.decks].sort((a,b)=>(b.updated||0)-(a.updated||0)).map(d=>{const st=deckStats(d),cv=deckCover(d);
     return `<button class="deckrow" data-a="deck" data-id="${d.id}">${cv?art(cv):'<span class="art"></span>'}<div class="rmain"><b>${esc(d.name)}</b><div class="line">${ciIcons(deckCI(d))}<span class="sub">${esc(d.format)} · ${st.n} cards · ${money(st.val)}</span></div></div><span class="muted">›</span></button>`;}).join('');
   $('#view').innerHTML=`
-    <form id="newdeck" class="bar" style="flex-wrap:nowrap"><input type="text" id="dn" placeholder="New deck name" maxlength="60" required style="flex:2"><select id="df" aria-label="Format" style="flex:1.1">${FORMATS.map(f=>`<option>${f}</option>`).join('')}</select><button class="btn primary" type="submit">Create</button></form>
+    <form id="newdeck" class="bar" style="flex-wrap:nowrap"><input type="text" id="dn" placeholder="New deck name" maxlength="60" required autocomplete="off" autocapitalize="words" enterkeyhint="done" role="combobox" aria-expanded="false" aria-controls="dsug" style="flex:2"><select id="df" aria-label="Format" style="flex:1.1">${FORMATS.map(f=>`<option>${f}</option>`).join('')}</select><button class="btn primary" type="submit">Create</button></form>
+    <div id="dsug" class="sug" role="listbox" aria-label="Card name suggestions"></div>
     ${S.decks.length?rows:'<p class="empty">No decks yet. There is no limit on how many you can make.</p>'}`;
 }
 function deckData(d){
@@ -530,6 +537,23 @@ function deckText(d){
   const part=b=>d.cards.filter(e=>e.board===b).map(line).filter(Boolean);
   const out=[];const cm=part('commander');if(cm.length)out.push('Commander',...cm,'');out.push(...part('main'));const sb=part('side');if(sb.length)out.push('','Sideboard',...sb);
   return out.join('\n');
+}
+
+/* deck name suggestions */
+let sugSeq=0;
+function showSuggestions(names,typed){
+  const box=$('#dsug');if(!box)return;
+  const t=typed.trim().toLowerCase();
+  box.innerHTML=names.slice(0,8).map(n=>{const i=t?n.toLowerCase().indexOf(t):-1;
+    const label=i>=0?esc(n.slice(0,i))+'<b>'+esc(n.slice(i,i+t.length))+'</b>'+esc(n.slice(i+t.length)):esc(n);
+    return `<button type="button" role="option" data-a="dsugpick" data-name="${esc(n)}">${label}</button>`;}).join('');
+  const inp=$('#dn');if(inp)inp.setAttribute('aria-expanded',names.length?'true':'false');
+}
+async function suggestNames(v){
+  const q=v.trim(),seq=++sugSeq;
+  if(q.length<2){showSuggestions([],'');return;}
+  try{const j=await sf('/cards/autocomplete?q='+encodeURIComponent(q));if(seq!==sugSeq)return;showSuggestions(j.data||[],q);}
+  catch(e){if(seq===sugSeq)showSuggestions([],'');}
 }
 
 /* data tab */
@@ -762,6 +786,7 @@ document.addEventListener('click',async ev=>{
       if(!n){toast(el.dataset.mode==='all'?'This deck is empty':'You already own every card in this deck');break;}
       if(confirm('Add '+n+' card'+(n===1?'':'s')+' from "'+d.name+'" to your collection?')){plan.forEach(x=>collAdd(x.id,false,x.qty));toast('Added '+n+' card'+(n===1?'':'s')+' to your collection');renderDeck();}
       break;}
+    case 'dsugpick':{const inp=$('#dn');if(inp){inp.value=el.dataset.name;inp.focus();}sugSeq++;showSuggestions([],'');break;}
     case 'importdeck':openImportDeck();break;
     case 'doimport':doImportDeck();break;
     case 'refresh':refreshAll(false);renderSync();break;
@@ -783,6 +808,7 @@ document.addEventListener('click',async ev=>{
 });
 document.addEventListener('input',ev=>{
   if(ev.target.id==='q'){S.search.q=ev.target.value;clearTimeout(runSearch.t);runSearch.t=setTimeout(()=>runSearch(),450);}
+  if(ev.target.id==='dn'){clearTimeout(suggestNames.t);const v=ev.target.value;suggestNames.t=setTimeout(()=>suggestNames(v),250);}
   if(ev.target.id==='cq'){S.collQ=ev.target.value;S.collLimit=100;renderCollList();}
 });
 document.addEventListener('change',ev=>{
@@ -792,7 +818,7 @@ document.addEventListener('change',ev=>{
 });
 document.addEventListener('submit',ev=>{
   if(ev.target.id==='newdeck'){ev.preventDefault();const n=$('#dn').value.trim();if(!n)return;
-    const d={id:uid(),name:n.slice(0,60),format:$('#df').value,cards:[],created:Date.now(),updated:Date.now()};S.decks.push(d);saveDeck(d);S.deckId=d.id;S.dtab='cards';pushNav();renderDeck();}
+    sugSeq++;const d={id:uid(),name:n.slice(0,60),format:$('#df').value,cards:[],created:Date.now(),updated:Date.now()};S.decks.push(d);saveDeck(d);S.deckId=d.id;S.dtab='cards';pushNav();renderDeck();}
 });
 function openImportDeck(){
   const d=deckById(S.deckId);
