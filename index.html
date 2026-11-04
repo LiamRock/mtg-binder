@@ -27,6 +27,7 @@ body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--sans);-webkit-te
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
 .ic{width:24px;height:24px;display:block;flex:none}
 
 /* top bar */
@@ -147,6 +148,23 @@ dialog::backdrop{background:#000a}
 .sug button:last-child{border-bottom:0}
 .sug button:active{background:var(--raise)}
 .sug b{color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip .ms{font-size:16px}
+.chip.ico{padding:6px 10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
+.cgrid{display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));gap:8px;margin-top:10px}
+.ctile{position:relative;min-width:0}
+.ctile .open{display:block;width:100%;background:none;border:0;padding:0;text-align:left}
+.ctile img{width:100%;aspect-ratio:488/680;object-fit:cover;border-radius:6px;background:var(--raise);display:block}
+.ctile .cap{display:block;margin-top:4px;font-size:13px;line-height:1.3;color:var(--muted)}
+.ctile .cap b{display:block;color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctile .qb{position:absolute;right:5px;top:5px;background:rgba(0,0,0,.72);color:#fff;border-radius:999px;font-size:12px;font-weight:700;padding:1px 8px;pointer-events:none}
+.ctile .fb{position:absolute;left:5px;top:5px;background:linear-gradient(135deg,#8fb2ff,#f5a31a);color:#111;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.04em;padding:2px 7px;pointer-events:none}
+.sec .ic{width:18px;height:18px;color:var(--muted)}
+.got{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--good);flex:none}
+.got:active{background:var(--raise)}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:20;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.on{opacity:1}
 .foot{margin-top:28px;font-size:12px;color:var(--muted)}
@@ -203,10 +221,11 @@ function parseDecklist(text){
   for(const raw of text.split(/\r?\n/)){
     let line=raw.trim(); if(!line||line.startsWith('//')||line.startsWith('#')) continue;
     const hm=line.match(/^\[(.+)\]$/);
-    if(hm){const n=hm[1].trim().toLowerCase();board=(n==='commander'||n==='commanders')?'commander':n==='sideboard'?'side':(n==='maybeboard'||n==='considering')?'skip':'main';continue;}
+    if(hm){const n=hm[1].trim().toLowerCase();board=(n==='commander'||n==='commanders')?'commander':n==='sideboard'?'side':(n==='wishlist'||n==='wish list')?'wish':(n==='maybeboard'||n==='considering')?'skip':'main';continue;}
     const h=line.replace(/:$/,'').toLowerCase();
     if(h==='sideboard'||h==='sb'){board='side';continue;}
     if(h==='commander'||h==='commanders'){board='commander';continue;}
+    if(h==='wishlist'||h==='wish list'){board='wish';continue;}
     if(h==='deck'||h==='main'||h==='mainboard'){board='main';continue;}
     if(h==='maybeboard'||h==='considering'){board='skip';continue;}
     let b=board; if(/^sb:\s*/i.test(line)){line=line.replace(/^sb:\s*/i,'');b='side';}
@@ -234,6 +253,8 @@ const IC={
   data:svg('<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>'),
   chart:svg('<path d="M5 20V11M12 20V4M19 20v-6"/>'),
   info:svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>'),
+  heart:svg('<path d="M12 20s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.5-7 10-7 10z"/>'),
+  check:svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
   scan:svg('<path d="M4 8a2 2 0 012-2h2l1.5-2h5L16 6h2a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><circle cx="12" cy="12.5" r="3.5"/>')
 };
 const NAV=[['search','Search',IC.search],['coll','Collection',IC.coll],['decks','Decks',IC.decks],['scan','Scan',IC.scan],['sync','Data',IC.data]];
@@ -262,17 +283,22 @@ const idb={
   clear:s=>new Promise((res,rej)=>{const t=db.transaction(s,'readwrite');t.objectStore(s).clear();t.oncomplete=()=>res();t.onerror=()=>rej(t.error);})
 };
 
-const S={cards:new Map(),coll:new Map(),decks:[],lastRefresh:0,tab:'search',deckId:null,dtab:'cards',target:null,busy:false,collQ:'',collSort:'name',collLimit:100,
+const FILT0=()=>({types:[],colors:[],cmode:'any',cmc:[],rarity:[],foil:'any',set:'',text:''});
+const S={cards:new Map(),coll:new Map(),decks:[],lastRefresh:0,tab:'search',deckId:null,dtab:'cards',target:null,targetBoard:'main',collView:'grid',collCols:3,filt:null,busy:false,collQ:'',collSort:'name',collLimit:90,
   search:{q:'',prints:false,results:[],next:null,total:0,loading:false,err:'',empty:false,seq:0},
   scan:{stream:null,workerP:null,busy:false,auto:false,card:null,cands:[],prints:null,printsBusy:false,msg:'',log:[]}};
 
+S.filt=FILT0();
+function loadPrefs(){try{const p=JSON.parse(localStorage.getItem('pb-prefs')||'{}');if(p.cols>=1&&p.cols<=6)S.collCols=p.cols;if(p.view==='grid'||p.view==='list')S.collView=p.view;if(p.sort)S.collSort=p.sort;}catch(e){}}
+function savePrefs(){try{localStorage.setItem('pb-prefs',JSON.stringify({cols:S.collCols,view:S.collView,sort:S.collSort}));}catch(e){}}
+loadPrefs();
 /* ---------- cards & prices ---------- */
-const CARD_V=2;
+const CARD_V=3;
 function faceImg(c,k){const u=c.image_uris||(c.card_faces&&c.card_faces[0]&&c.card_faces[0].image_uris)||{};return u[k]||'';}
 function slim(c){
   const f=c.card_faces||[];const p=c.prices||{};
   return {v:CARD_V,id:c.id,name:c.name,set:c.set,set_name:c.set_name,cn:c.collector_number,rarity:c.rarity,
-    mana:c.mana_cost||f.map(x=>x.mana_cost).filter(Boolean).join(' // '),cmc:c.cmc||0,type:c.type_line||'',ci:c.color_identity||[],
+    mana:c.mana_cost||f.map(x=>x.mana_cost).filter(Boolean).join(' // '),cmc:c.cmc||0,type:c.type_line||'',ci:c.color_identity||[],colors:c.colors||[...new Set(f.flatMap(x=>x.colors||[]))],
     text:c.oracle_text||f.map(x=>x.oracle_text).filter(Boolean).join('\n//\n'),
     img:faceImg(c,'small'),imgL:faceImg(c,'normal'),art:faceImg(c,'art_crop'),
     prices:{usd:p.usd,usd_foil:p.usd_foil,usd_etched:p.usd_etched},uri:c.scryfall_uri,upd:Date.now()};
@@ -379,7 +405,7 @@ function renderSearch(){
   setHeader({title:'Search'});
   const s=S.search,d=S.target&&deckById(S.target);
   $('#view').innerHTML=`
-    ${d?`<div class="banner"><span>Adding to <b>${esc(d.name)}</b></span><button class="btn small" data-a="opendeck" data-id="${d.id}">Open deck</button><button class="btn small" data-a="cleartarget">Done</button></div>`:''}
+    ${d?`<div class="banner"><span>Adding to <b>${esc(d.name)}</b>${S.targetBoard==='wish'?' wishlist':''}</span><button class="btn small" data-a="opendeck" data-id="${d.id}">Open deck</button><button class="btn small" data-a="cleartarget">Done</button></div>`:''}
     <div class="bar"><label class="searchbox">${IC.search}<input id="q" type="search" placeholder="Search cards, e.g. t:goblin c:r cmc<=2" enterkeyhint="search" autocomplete="off" value="${esc(s.q)}"></label></div>
     <div class="bar"><button class="chip" data-a="prints" aria-pressed="${s.prints}">All printings</button><span class="sub">Scryfall search syntax works</span></div>
     <div id="results"></div>`;
@@ -389,7 +415,7 @@ function renderResults(){
   const el=$('#results');if(!el)return;const s=S.search;
   if(s.err){el.innerHTML=`<p class="err">${esc(s.err)}</p>`;return;}
   if(!s.results.length){el.innerHTML=s.loading?'<p class="empty">Searching…</p>':s.empty?'<p class="empty">No cards matched that search.</p>':'<p class="empty">Search by name or use Scryfall syntax.<br>Tap + on a card to add it fast, or tap the card for details.</p>';return;}
-  const quickLabel=S.target?'Add to deck':'Add to collection';
+  const quickLabel=S.target?(S.targetBoard==='wish'?'Add to wishlist':'Add to deck'):'Add to collection';
   el.innerHTML=`<p class="sub">${s.total} card${s.total===1?'':'s'} found</p><div class="grid">`+s.results.map(c=>{
     const n=owned(c.id);
     return `<div class="tile"><button class="open" data-a="card" data-id="${c.id}"><img src="${esc(c.img)}" alt="" loading="lazy"><div class="t"><b>${esc(c.name)}</b><span class="sub">${esc(c.set.toUpperCase())} #${esc(c.cn)} · ${money(unitPrice(c,false))}</span></div></button>${n?`<span class="own">${n}</span>`:''}<button class="add" data-a="quick" data-id="${c.id}" aria-label="${quickLabel}: ${esc(c.name)}">${IC.plus}</button></div>`;
@@ -411,40 +437,97 @@ async function runSearch(more){
 }
 
 /* collection */
+function activeFilters(){const f=S.filt;return (f.types.length?1:0)+(f.colors.length?1:0)+(f.cmc.length?1:0)+(f.rarity.length?1:0)+(f.foil!=='any'?1:0)+(f.set?1:0)+(f.text.trim()?1:0);}
+function passesFilters(c,e){
+  const f=S.filt;
+  if(f.types.length&&!f.types.some(t=>(c.type||'').includes(t)))return false;
+  if(f.colors.length){
+    const cc=c.colors||[],sel=f.colors;
+    if(f.cmode==='exact'){
+      const want=sel.filter(x=>x!=='C').sort().join(''),have=cc.slice().sort().join('');
+      if(want!==have)return false;
+    }else if(!sel.some(x=>x==='C'?cc.length===0:cc.includes(x)))return false;
+  }
+  if(f.cmc.length&&!f.cmc.includes(Math.min(7,Math.floor(c.cmc||0))))return false;
+  if(f.rarity.length&&!f.rarity.includes(c.rarity))return false;
+  if(f.foil==='foil'&&!e.foil)return false;
+  if(f.foil==='nonfoil'&&!e.qty)return false;
+  if(f.set&&c.set!==f.set)return false;
+  const words=f.text.toLowerCase().split(/\s+/).filter(Boolean);
+  if(words.length){const t=(c.text||'').toLowerCase();if(!words.every(w=>t.includes(w)))return false;}
+  return true;
+}
+function collAllItems(){return [...S.coll.values()].map(e=>({e,c:S.cards.get(e.id)})).filter(x=>x.c);}
+function collFiltered(all){
+  let items=all;
+  const q=S.collQ.trim().toLowerCase();
+  if(q)items=items.filter(x=>x.c.name.toLowerCase().includes(q)||x.c.set_name.toLowerCase().includes(q)||x.c.type.toLowerCase().includes(q));
+  items=items.filter(x=>passesFilters(x.c,x.e));
+  const sorters={name:(a,b)=>a.c.name.localeCompare(b.c.name),value:(a,b)=>entryValue(b.e)-entryValue(a.e),qty:(a,b)=>(b.e.qty+b.e.foil)-(a.e.qty+a.e.foil)};
+  return items.sort(sorters[S.collSort]||sorters.name);
+}
 function renderColl(){
   setHeader({title:'Collection'});
   $('#view').innerHTML=`
     <div class="stats" id="cstats"></div>
-    <div class="bar"><label class="searchbox">${IC.search}<input id="cq" type="search" placeholder="Filter your collection" value="${esc(S.collQ)}" autocomplete="off"></label></div>
-    <div class="bar"><select id="csort" aria-label="Sort"><option value="name">Sort: name</option><option value="value">Sort: value</option><option value="qty">Sort: quantity</option></select></div>
+    <div class="bar"><label class="searchbox">${IC.search}<input id="cq" type="search" placeholder="Search your collection" value="${esc(S.collQ)}" autocomplete="off"></label></div>
+    <div class="bar"><button class="chip" id="fbtn" data-a="fopen" aria-pressed="false">Filters</button>
+      <span class="seg"><button data-a="cview" data-v="grid" aria-pressed="${S.collView==='grid'}">Grid</button><button data-a="cview" data-v="list" aria-pressed="${S.collView==='list'}">List</button></span>
+      <select id="csort" aria-label="Sort" style="width:auto;min-height:38px;flex:1;min-width:120px"><option value="name">Sort: name</option><option value="value">Sort: value</option><option value="qty">Sort: quantity</option></select></div>
+    <div class="bar" id="colsrow" ${S.collView==='grid'?'':'hidden'}><span class="sub">Columns</span><input type="range" id="ccols" min="1" max="6" step="1" value="${S.collCols}" aria-label="Columns" style="flex:1;accent-color:var(--accent);min-height:30px;padding:0;border:0;background:none"><b id="colsn" style="min-width:14px;text-align:right">${S.collCols}</b></div>
+    <p id="cres" class="sub" style="margin:2px 0"></p>
     <div id="clist"></div>`;
   $('#csort').value=S.collSort;renderCollList();
 }
 function renderCollList(){
   const el=$('#clist');if(!el)return;
-  let items=[...S.coll.values()].map(e=>({e,c:S.cards.get(e.id)})).filter(x=>x.c);
-  let totalCards=0,value=0;for(const x of items){totalCards+=x.e.qty+x.e.foil;value+=entryValue(x.e);}
-  $('#cstats').innerHTML=`<div class="stat"><b>${items.length}</b><span>Unique</span></div><div class="stat"><b>${totalCards}</b><span>Cards</span></div><div class="stat"><b>${money(value)}</b><span>Value</span></div>`;
-  const q=S.collQ.trim().toLowerCase();if(q)items=items.filter(x=>x.c.name.toLowerCase().includes(q)||x.c.set_name.toLowerCase().includes(q)||x.c.type.toLowerCase().includes(q));
-  const sorters={name:(a,b)=>a.c.name.localeCompare(b.c.name),value:(a,b)=>entryValue(b.e)-entryValue(a.e),qty:(a,b)=>(b.e.qty+b.e.foil)-(a.e.qty+a.e.foil)};
-  items.sort(sorters[S.collSort]||sorters.name);
-  if(!items.length){el.innerHTML=`<p class="empty">${S.coll.size?'Nothing matches that filter.':'Your collection is empty.<br>Add cards from Search, or import a ManaBox CSV in the Data tab.'}</p>`;return;}
-  const shown=items.slice(0,S.collLimit);
-  el.innerHTML=shown.map(({e,c})=>`<div class="row" data-a="card" data-id="${c.id}">${art(c)}<div class="rmain"><b>${esc(c.name)}</b><div class="line">${typeIcon(typeGroup(c.type))}${costHTML(c.mana)}<span class="sub">${esc(c.set.toUpperCase())} #${esc(c.cn)} · ${money(entryValue(e))}${e.foil?` · ${e.foil} foil`:''}</span></div></div>
-    <div class="qty" data-stop><button data-a="dec" data-id="${c.id}" aria-label="Remove one">−</button><span>${e.qty+e.foil}</span><button data-a="inc" data-id="${c.id}" aria-label="Add one">+</button></div></div>`).join('')
-    +(items.length>shown.length?`<div class="bar"><button class="btn" data-a="showmore">Show more (${items.length-shown.length} left)</button></div>`:'');
+  const all=collAllItems();
+  let totalCards=0,value=0;for(const x of all){totalCards+=x.e.qty+x.e.foil;value+=entryValue(x.e);}
+  $('#cstats').innerHTML=`<div class="stat"><b>${all.length}</b><span>Unique</span></div><div class="stat"><b>${totalCards}</b><span>Cards</span></div><div class="stat"><b>${money(value)}</b><span>Value</span></div>`;
+  const items=collFiltered(all),nf=activeFilters();
+  const fb=$('#fbtn');if(fb){fb.textContent=nf?`Filters · ${nf}`:'Filters';fb.setAttribute('aria-pressed',nf>0);}
+  const dn=$('#fdone');if(dn)dn.textContent=`Show ${items.length} card${items.length===1?'':'s'}`;
+  $('#cres').textContent=(nf||S.collQ.trim())?`Showing ${items.length} of ${all.length} unique cards`:'';
+  if(!items.length){el.innerHTML=all.length?`<p class="empty">No cards match.<br><button class="btn small" style="margin-top:10px" data-a="fclear">Clear search and filters</button></p>`:'<p class="empty">Your collection is empty.<br>Add cards from Search or Scan, or import a ManaBox CSV in the Data tab.</p>';return;}
+  const shown=items.slice(0,S.collLimit),more=items.length>shown.length?`<div class="bar"><button class="btn" data-a="showmore">Show more (${items.length-shown.length} left)</button></div>`:'';
+  if(S.collView==='grid'){
+    const cols=S.collCols,big=cols<=2;
+    el.innerHTML=`<div class="cgrid" style="--cols:${cols}">`+shown.map(({e,c})=>`<div class="ctile"><button class="open" data-a="card" data-id="${c.id}"><img src="${esc(big?(c.imgL||c.img):c.img)}" alt="${esc(c.name)}" loading="lazy">${big?`<span class="cap"><b>${esc(c.name)}</b>${esc(c.set.toUpperCase())} #${esc(c.cn)} · ${money(entryValue(e))}</span>`:''}</button><span class="qb">×${e.qty+e.foil}</span>${e.foil?'<span class="fb">FOIL</span>':''}</div>`).join('')+'</div>'+more;
+  }else{
+    el.innerHTML=shown.map(({e,c})=>`<div class="row" data-a="card" data-id="${c.id}">${art(c)}<div class="rmain"><b>${esc(c.name)}</b><div class="line">${typeIcon(typeGroup(c.type))}${costHTML(c.mana)}<span class="sub">${esc(c.set.toUpperCase())} #${esc(c.cn)} · ${money(entryValue(e))}${e.foil?` · ${e.foil} foil`:''}</span></div></div>
+      <div class="qty" data-stop><button data-a="dec" data-id="${c.id}" aria-label="Remove one">−</button><span>${e.qty+e.foil}</span><button data-a="inc" data-id="${c.id}" aria-label="Add one">+</button></div></div>`).join('')+more;
+  }
 }
+const COLOR_NAMES={W:'White',U:'Blue',B:'Black',R:'Red',G:'Green',C:'Colorless'};
+function renderFilters(){
+  const f=S.filt;
+  const chip=(act,v,label,on,icon,extra)=>`<button class="chip${extra||''}" data-a="${act}" data-v="${v}" aria-pressed="${on}"${extra?` aria-label="${esc(label)}"`:''}>${icon||''}${extra?'':esc(label)}</button>`;
+  const sets=[...new Map(collAllItems().map(x=>[x.c.set,x.c.set_name])).entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+  $('#dlg').innerHTML=`<div class="sheet">
+    <div class="bar" style="justify-content:space-between;margin:0"><h2 style="margin:0">Filters</h2><button class="btn small" data-a="fclear">Clear all</button></div>
+    <h3>Card type</h3><div class="chips">${TYPES.map(t=>chip('ftype',t,t,f.types.includes(t),`<i class="ms ms-${TYPE_ICON[t]}"></i>`)).join('')}</div>
+    <h3>Color</h3><div class="chips">${'WUBRGC'.split('').map(k=>chip('fcolor',k,COLOR_NAMES[k],f.colors.includes(k),`<i class="ms ms-${k.toLowerCase()} ms-cost ms-shadow"></i>`,' ico')).join('')}</div>
+    <div class="chips" style="margin-top:8px">${chip('fmode','any','Any of these',f.cmode==='any')}${chip('fmode','exact','Exactly these',f.cmode==='exact')}</div>
+    <h3>Mana value</h3><div class="chips">${[0,1,2,3,4,5,6,7].map(n=>chip('fcmc',n,n===7?'7+':String(n),f.cmc.includes(n))).join('')}</div>
+    <h3>Rarity</h3><div class="chips">${['common','uncommon','rare','mythic'].map(r=>chip('frar',r,r[0].toUpperCase()+r.slice(1),f.rarity.includes(r))).join('')}</div>
+    <h3>Finish</h3><div class="chips">${[['any','Any'],['foil','Has foil'],['nonfoil','Has non-foil']].map(([v,l])=>chip('ffoil',v,l,f.foil===v)).join('')}</div>
+    <h3>Set</h3><select id="fset" aria-label="Set"><option value="">Any set</option>${sets.map(([c,n])=>`<option value="${esc(c)}" ${f.set===c?'selected':''}>${esc(n)} (${esc(c.toUpperCase())})</option>`).join('')}</select>
+    <h3>Rules text contains</h3><input type="text" id="ftext" placeholder="e.g. flying, draw a card, destroy target" value="${esc(f.text)}" autocomplete="off">
+    <div class="bar" style="margin-top:18px"><button class="btn primary" id="fdone" data-a="fdone" style="flex:1">Show cards</button></div></div>`;
+  renderCollList();
+}
+function toggleIn(arr,v){const i=arr.indexOf(v);if(i>=0)arr.splice(i,1);else arr.push(v);}
 
 /* decks */
 const FORMATS=['Commander','Standard','Modern','Pioneer','Legacy','Pauper','Limited','Other'];
 function renderDecks(){S.deckId&&deckById(S.deckId)?renderDeck():renderDeckList();}
-function deckStats(d){let n=0,val=0;for(const e of d.cards){n+=e.qty;const c=S.cards.get(e.id);if(c)val+=e.qty*(unitPrice(c,false)||0);}return {n,val};}
+function deckStats(d){let n=0,val=0;for(const e of d.cards){if(e.board==='wish')continue;n+=e.qty;const c=S.cards.get(e.id);if(c)val+=e.qty*(unitPrice(c,false)||0);}return {n,val};}
 function deckCI(d){
-  const set=new Set();const pick=d.cards.filter(e=>e.board==='commander');const src=pick.length?pick:d.cards;
+  const set=new Set();const pick=d.cards.filter(e=>e.board==='commander');const src=pick.length?pick:d.cards.filter(e=>e.board!=='wish');
   for(const e of src){const c=S.cards.get(e.id);if(c)(c.ci||[]).forEach(x=>set.add(x));}
   return 'WUBRG'.split('').filter(x=>set.has(x));
 }
-function deckCover(d){const e=d.cards.find(x=>x.board==='commander')||d.cards[0];return e&&S.cards.get(e.id);}
+function deckCover(d){const e=d.cards.find(x=>x.board==='commander')||d.cards.find(x=>x.board!=='wish');return e&&S.cards.get(e.id);}
 function renderDeckList(){
   S.deckId=null;setHeader({title:'Decks'});
   const rows=[...S.decks].sort((a,b)=>(b.updated||0)-(a.updated||0)).map(d=>{const st=deckStats(d),cv=deckCover(d);
@@ -455,8 +538,8 @@ function renderDeckList(){
     ${S.decks.length?rows:'<p class="empty">No decks yet. There is no limit on how many you can make.</p>'}`;
 }
 function deckData(d){
-  const own=ownedByName(),boards={commander:[],main:[],side:[]},need=new Map();
-  for(const e of d.cards){const c=S.cards.get(e.id);if(!c)continue;(boards[e.board]||boards.main).push({e,c});if(e.board!=='side')need.set(c.name,(need.get(c.name)||0)+e.qty);}
+  const own=ownedByName(),boards={commander:[],main:[],side:[],wish:[]},need=new Map();
+  for(const e of d.cards){const c=S.cards.get(e.id);if(!c)continue;(boards[e.board]||boards.main).push({e,c});if(e.board!=='side'&&e.board!=='wish')need.set(c.name,(need.get(c.name)||0)+e.qty);}
   const lack=n=>Math.max(0,(need.get(n)||0)-(own.get(n)||0));
   return {own,boards,need,lack};
 }
@@ -473,7 +556,7 @@ function deckRow(x,D){
 }
 function deckCardsView(d){
   const D=deckData(d),B=D.boards;
-  const head=(icon,title,n,plus)=>`<div class="sec">${icon}<span>${title}</span><span class="cnt">${n}</span>${plus?`<button data-a="adddeck" aria-label="Add cards">${IC.plus}</button>`:''}</div>`;
+  const head=(icon,title,n,plusAct)=>`<div class="sec">${icon}<span>${title}</span><span class="cnt">${n}</span>${plusAct?`<button data-a="${plusAct}" aria-label="Add cards">${IC.plus}</button>`:''}</div>`;
   const qty=l=>l.reduce((a,x)=>a+x.e.qty,0);
   const byType=list=>{const g={};list.forEach(x=>{(g[typeGroup(x.c.type)]??=[]).push(x);});
     return [...TYPES,'Other'].filter(t=>g[t]).map(t=>head(typeIcon(t)||'',PLURAL[t],qty(g[t]))+g[t].sort((a,b)=>a.c.cmc-b.c.cmc||a.c.name.localeCompare(b.c.name)).map(x=>deckRow(x,D)).join('')).join('');};
@@ -482,7 +565,13 @@ function deckCardsView(d){
   if(B.commander.length)h+=head('<i class="ms ms-planeswalker"></i>','Commander',qty(B.commander))+B.commander.map(x=>deckRow(x,D)).join('');
   if(B.main.length)h+=byType(B.main);
   if(B.side.length)h+=head('','Sideboard',qty(B.side))+B.side.sort((a,b)=>a.c.name.localeCompare(b.c.name)).map(x=>deckRow(x,D)).join('');
+  const wl=B.wish.slice().sort((a,b)=>a.c.name.localeCompare(b.c.name)),wv=wl.reduce((a,x)=>a+x.e.qty*(unitPrice(x.c,false)||0),0);
+  h+=head(IC.heart,'Wishlist'+(wl.length?' · est. '+money(wv):''),qty(wl),'addwish')+(wl.length?wl.map(wishRow).join(''):'<p class="sub" style="padding:10px 0">Cards you want to get for this deck. Tap + to search and add some.</p>');
   $('#view').innerHTML=h;
+}
+function wishRow(x){
+  const {e,c}=x;
+  return `<div class="row" data-a="card" data-id="${c.id}" data-board="wish">${art(c)}<div class="rmain"><b>${esc(c.name)}</b><div class="line">${costHTML(c.mana)}<span class="sub">${money(unitPrice(c,false))}${e.qty>1?' each':''}</span></div></div><div class="qty" data-stop><button data-a="ddec" data-id="${c.id}" data-board="wish" aria-label="Remove one">−</button><span>${e.qty}</span><button data-a="dinc" data-id="${c.id}" data-board="wish" aria-label="Add one">+</button></div><button class="got" data-a="wishgot" data-id="${c.id}" aria-label="Got it: add to my collection and move into the deck">${IC.check}</button></div>`;
 }
 function deckStatsView(d){
   const D=deckData(d),play=[...D.boards.commander,...D.boards.main],st=deckStats(d);
@@ -496,7 +585,7 @@ function deckStatsView(d){
   const pips={W:0,U:0,B:0,R:0,G:0};
   play.forEach(x=>{for(const m of (x.c.mana||'').matchAll(/\{([^}]+)\}/g))for(const col of 'WUBRG')if(m[1].includes(col))pips[col]+=x.e.qty;});
   const pmx=Math.max(1,...Object.values(pips));
-  const top=[...d.cards].map(e=>({e,c:S.cards.get(e.id)})).filter(x=>x.c).map(x=>({c:x.c,v:(unitPrice(x.c,false)||0)})).sort((a,b)=>b.v-a.v).slice(0,5);
+  const top=d.cards.filter(e=>e.board!=='wish').map(e=>({e,c:S.cards.get(e.id)})).filter(x=>x.c).map(x=>({c:x.c,v:(unitPrice(x.c,false)||0)})).sort((a,b)=>b.v-a.v).slice(0,5);
   $('#view').innerHTML=`
     <div class="stats"><div class="stat"><b>${st.n}</b><span>Cards</span></div><div class="stat"><b>${avg.toFixed(2)}</b><span>Avg. mana value</span></div><div class="stat"><b>${money(st.val)}</b><span>Value</span></div></div>
     <h3>Mana curve</h3><div class="curve">${curve.map((n,i)=>`<div><b>${n||''}</b><i style="height:${Math.round(n/mx*88)}px"></i><span>${i===7?'7+':i}</span></div>`).join('')}</div>
@@ -514,28 +603,30 @@ function deckInfoView(d){
     <div class="kv"><span>Format</span><span>${esc(d.format)}</span></div>
     <div class="kv"><span>Cards</span><span>${st.n}</span></div>
     <div class="kv"><span>Value</span><span>${money(st.val)}</span></div>
+    <div class="kv"><span>Wishlist</span><span>${D.boards.wish.reduce((a,x)=>a+x.e.qty,0)} cards · ${money(D.boards.wish.reduce((a,x)=>a+x.e.qty*(unitPrice(x.c,false)||0),0))}</span></div>
     <div class="bar" style="margin-top:14px"><button class="btn primary" data-a="importdeck">Import list</button><button class="btn" data-a="copydeck">Copy list</button><button class="btn" data-a="renamedeck">Rename</button><button class="btn danger" data-a="deletedeck">Delete deck</button></div>
     <h3>Collection</h3>
     <p class="sub">Mark this deck's cards as owned, using the exact printings in the deck. Foil status isn't tracked in decks, so they're added as normal copies.</p>
     <div class="bar"><button class="btn" data-a="deck2coll" data-mode="missing">Add cards I'm missing</button><button class="btn" data-a="deck2coll" data-mode="all">Add every card</button></div>
     <h3>Cards you don't own${miss.length?` · est. ${money(cost)}`:''}</h3>
+    ${miss.length?'<div class="bar" style="margin-top:0"><button class="btn small" data-a="wishmissing">Add these to the wishlist</button></div>':''}
     ${miss.length?miss.map(m=>`<div class="kv"><span style="color:var(--ink)">${m.l}× ${esc(m.name)}</span><span>${money(m.p)}</span></div>`).join(''):`<p class="sub">${st.n?'You own every card in this deck.':'Nothing to check yet.'}</p>`}`;
 }
 function deckToCollection(d,mode){
   const plan=[];
-  if(mode==='all'){for(const e of d.cards)if(S.cards.has(e.id))plan.push({id:e.id,qty:e.qty});}
+  if(mode==='all'){for(const e of d.cards)if(e.board!=='wish'&&S.cards.has(e.id))plan.push({id:e.id,qty:e.qty});}
   else{
     const own=ownedByName(),left=new Map();
-    for(const e of d.cards){const c=S.cards.get(e.id);if(c)left.set(c.name,(left.has(c.name)?left.get(c.name):0)+e.qty);}
+    for(const e of d.cards){if(e.board==='wish')continue;const c=S.cards.get(e.id);if(c)left.set(c.name,(left.has(c.name)?left.get(c.name):0)+e.qty);}
     for(const [n,q] of left)left.set(n,Math.max(0,q-(own.get(n)||0)));
-    for(const e of d.cards){const c=S.cards.get(e.id);if(!c)continue;const r=left.get(c.name)||0;const add=Math.min(e.qty,r);if(add>0){plan.push({id:e.id,qty:add});left.set(c.name,r-add);}}
+    for(const e of d.cards){if(e.board==='wish')continue;const c=S.cards.get(e.id);if(!c)continue;const r=left.get(c.name)||0;const add=Math.min(e.qty,r);if(add>0){plan.push({id:e.id,qty:add});left.set(c.name,r-add);}}
   }
   return plan;
 }
 function deckText(d){
   const line=e=>{const c=S.cards.get(e.id);return c?`${e.qty} ${c.name} (${c.set.toUpperCase()}) ${c.cn}`:null;};
   const part=b=>d.cards.filter(e=>e.board===b).map(line).filter(Boolean);
-  const out=[];const cm=part('commander');if(cm.length)out.push('Commander',...cm,'');out.push(...part('main'));const sb=part('side');if(sb.length)out.push('','Sideboard',...sb);
+  const out=[];const cm=part('commander');if(cm.length)out.push('Commander',...cm,'');out.push(...part('main'));const sb=part('side');if(sb.length)out.push('','Sideboard',...sb);const wl=part('wish');if(wl.length)out.push('','Wishlist',...wl);
   return out.join('\n');
 }
 
@@ -611,7 +702,7 @@ async function restoreJSON(file){
 /* card sheet */
 let sheetId=null,sheetBoard='main';
 function openCard(id,board){
-  if(!S.cards.has(id))return;sheetId=id;if(board)sheetBoard=board;renderSheet();const d=$('#dlg');if(!d.open)d.showModal();
+  if(!S.cards.has(id))return;sheetId=id;sheetBoard=board||(S.target&&deckById(S.target)?S.target&&S.targetBoard:'main');renderSheet();const d=$('#dlg');if(!d.open)d.showModal();
 }
 function renderSheet(){
   const c=S.cards.get(sheetId);if(!c)return;const e=S.coll.get(c.id)||{qty:0,foil:0};
@@ -626,7 +717,7 @@ function renderSheet(){
     <div class="ctl"><span>In collection (normal)</span><div class="qty"><button data-a="sinc" data-foil="0" data-d="-1" aria-label="Remove one">−</button><span>${e.qty}</span><button data-a="sinc" data-foil="0" data-d="1" aria-label="Add one">+</button></div></div>
     <div class="ctl"><span>In collection (foil)</span><div class="qty"><button data-a="sinc" data-foil="1" data-d="-1" aria-label="Remove one">−</button><span>${e.foil}</span><button data-a="sinc" data-foil="1" data-d="1" aria-label="Add one">+</button></div></div>
     <h3>Add to a deck</h3>
-    ${S.decks.length?`<div class="two"><select id="sdeck" aria-label="Deck">${S.decks.map(x=>`<option value="${x.id}" ${x.id===d?'selected':''}>${esc(x.name)}</option>`).join('')}</select><select id="sboard" aria-label="Board"><option value="main">Main deck</option><option value="side">Sideboard</option><option value="commander">Commander</option></select></div><div class="bar"><button class="btn primary" data-a="sdeckadd">Add to deck</button></div>`:'<p class="sub">Create a deck in the Decks tab first.</p>'}
+    ${S.decks.length?`<div class="two"><select id="sdeck" aria-label="Deck">${S.decks.map(x=>`<option value="${x.id}" ${x.id===d?'selected':''}>${esc(x.name)}</option>`).join('')}</select><select id="sboard" aria-label="Board"><option value="main">Main deck</option><option value="side">Sideboard</option><option value="commander">Commander</option><option value="wish">Wishlist</option></select></div><div class="bar"><button class="btn primary" data-a="sdeckadd">Add to deck</button></div>`:'<p class="sub">Create a deck in the Decks tab first.</p>'}
     <div class="bar"><button class="btn" data-a="prints2" data-name="${esc(c.name)}">Other printings</button>${c.uri?`<a class="btn" style="display:inline-flex;align-items:center;text-decoration:none;color:var(--ink)" href="${esc(c.uri)}" target="_blank" rel="noopener">Scryfall</a>`:''}</div></div>`;
   if($('#sboard'))$('#sboard').value=sheetBoard;
 }
@@ -742,7 +833,7 @@ function updateScanUI(){
   if(c){
     const n=owned(c.id),d=S.target&&deckById(S.target);
     h+=`<div class="scanres"><button class="thumb" data-a="scanopen" aria-label="Card details"><img src="${esc(c.img)}" alt=""></button><div class="rmain" style="min-width:0"><b style="white-space:normal">${esc(c.name)}</b><div class="line">${costHTML(c.mana)}</div><div class="sub">${esc(c.set_name)} · ${esc(c.set.toUpperCase())} #${esc(c.cn)}</div><div class="sub">${money(unitPrice(c,false))}${n?` · you own ${n}`:''}</div></div></div>
-    <div class="bar"><button class="btn primary" data-a="scanadd" data-foil="0">Add to collection</button><button class="btn" data-a="scanadd" data-foil="1">Add foil</button>${d?`<button class="btn" data-a="scandeck">Add to ${esc(d.name)}</button>`:''}</div>
+    <div class="bar"><button class="btn primary" data-a="scanadd" data-foil="0">Add to collection</button><button class="btn" data-a="scanadd" data-foil="1">Add foil</button>${d?`<button class="btn" data-a="scandeck">Add to ${esc(d.name)}${S.targetBoard==='wish'?' wishlist':''}</button>`:''}</div>
     <div class="bar"><button class="btn small" data-a="scanprints" ${sc.printsBusy?'disabled':''}>${sc.printsBusy?'Loading…':'Change printing'}</button><button class="btn small" data-a="scanskip">Not this card</button></div>`;
     if(sc.prints&&sc.prints.length)h+=`<div class="pts">${sc.prints.map(p=>`<button class="pt${p.id===c.id?' on':''}" data-a="scanpick" data-id="${p.id}"><img src="${esc(p.img)}" alt="" loading="lazy"><b>${esc(p.set.toUpperCase())} #${esc(p.cn)}</b><br><span class="sub">${money(unitPrice(p,false))}</span></button>`).join('')}</div>`;
   }else if(sc.cands.length){
@@ -764,10 +855,20 @@ document.addEventListener('click',async ev=>{
     case 'prints':S.search.prints=!S.search.prints;el.setAttribute('aria-pressed',S.search.prints);runSearch();break;
     case 'more':runSearch(true);break;
     case 'quick':{const d=S.target&&deckById(S.target);persistCard(id);
-      if(d){deckAdd(d,id,'main',1);toast('Added to '+d.name);}else{collAdd(id,false,1);toast('Added to collection');}renderResults();break;}
+      if(d){deckAdd(d,id,S.targetBoard||'main',1);toast('Added to '+d.name+(S.targetBoard==='wish'?' wishlist':''));}else{collAdd(id,false,1);toast('Added to collection');}renderResults();break;}
     case 'inc':collAdd(id,false,1);renderCollList();break;
     case 'dec':{const e=S.coll.get(id);if(e){if(e.qty>0)collAdd(id,false,-1);else collAdd(id,true,-1);}renderCollList();break;}
-    case 'showmore':S.collLimit+=100;renderCollList();break;
+    case 'showmore':S.collLimit+=90;renderCollList();break;
+    case 'cview':S.collView=el.dataset.v;savePrefs();renderColl();break;
+    case 'fopen':renderFilters();if(!$('#dlg').open)$('#dlg').showModal();break;
+    case 'ftype':toggleIn(S.filt.types,el.dataset.v);S.collLimit=90;renderFilters();break;
+    case 'fcolor':toggleIn(S.filt.colors,el.dataset.v);S.collLimit=90;renderFilters();break;
+    case 'fcmc':toggleIn(S.filt.cmc,+el.dataset.v);S.collLimit=90;renderFilters();break;
+    case 'frar':toggleIn(S.filt.rarity,el.dataset.v);S.collLimit=90;renderFilters();break;
+    case 'fmode':S.filt.cmode=el.dataset.v;renderFilters();break;
+    case 'ffoil':S.filt.foil=el.dataset.v;S.collLimit=90;renderFilters();break;
+    case 'fclear':{S.filt=FILT0();S.collQ='';S.collLimit=90;const q=$('#cq');if(q)q.value='';if($('#dlg').open&&$('#fdone'))renderFilters();else renderCollList();break;}
+    case 'fdone':$('#dlg').close();break;
     case 'sinc':collAdd(sheetId,el.dataset.foil==='1',+el.dataset.d);renderSheet();refreshView();break;
     case 'sdeckadd':{const d=deckById($('#sdeck').value);sheetBoard=$('#sboard').value;if(d){deckAdd(d,sheetId,sheetBoard,1);toast('Added to '+d.name);refreshView();}break;}
     case 'prints2':{$('#dlg').close();S.search.q='!"'+el.dataset.name+'"';S.search.prints=true;setTab('search');runSearch();break;}
@@ -775,8 +876,9 @@ document.addEventListener('click',async ev=>{
     case 'opendeck':S.deckId=id;S.dtab='cards';S.tab='decks';buildNav();pushNav();renderDeck();scrollTo(0,0);break;
     case 'back':navBack();break;
     case 'dtab':S.dtab=el.dataset.t;replaceNav();renderDeck();break;
-    case 'cleartarget':S.target=null;renderSearch();break;
-    case 'adddeck':S.target=S.deckId;setTab('search');break;
+    case 'cleartarget':S.target=null;S.targetBoard='main';renderSearch();break;
+    case 'adddeck':S.target=S.deckId;S.targetBoard='main';setTab('search');break;
+    case 'addwish':S.target=S.deckId;S.targetBoard='wish';setTab('search');break;
     case 'dinc':deckAdd(deckById(S.deckId),id,el.dataset.board,1);renderDeck();break;
     case 'ddec':deckAdd(deckById(S.deckId),id,el.dataset.board,-1);renderDeck();break;
     case 'copydeck':{const t=deckText(deckById(S.deckId));try{await navigator.clipboard.writeText(t);toast('Deck list copied');}catch{download('deck.txt',t,'text/plain');}break;}
@@ -787,6 +889,12 @@ document.addEventListener('click',async ev=>{
       if(confirm('Add '+n+' card'+(n===1?'':'s')+' from "'+d.name+'" to your collection?')){plan.forEach(x=>collAdd(x.id,false,x.qty));toast('Added '+n+' card'+(n===1?'':'s')+' to your collection');renderDeck();}
       break;}
     case 'dsugpick':{const inp=$('#dn');if(inp){inp.value=el.dataset.name;inp.focus();}sugSeq++;showSuggestions([],'');break;}
+    case 'wishgot':{const d=deckById(S.deckId),e=d&&d.cards.find(x=>x.id===id&&x.board==='wish');
+      if(e){const q=e.qty;d.cards=d.cards.filter(x=>x!==e);collAdd(id,false,q);deckAdd(d,id,'main',q);toast('Added to your collection and moved into the deck');renderDeck();}break;}
+    case 'wishmissing':{const d=deckById(S.deckId),D=deckData(d);let n=0;
+      for(const [name] of D.need){const l=D.lack(name);if(!l)continue;const ent=[...D.boards.commander,...D.boards.main].find(x=>x.c.name===name);
+        const have=D.boards.wish.filter(x=>x.c.name===name).reduce((a,x)=>a+x.e.qty,0);const add=l-have;if(ent&&add>0){deckAdd(d,ent.c.id,'wish',add);n+=add;}}
+      toast(n?'Added '+n+' to the wishlist':'The wishlist already covers everything missing');renderDeck();break;}
     case 'importdeck':openImportDeck();break;
     case 'doimport':doImportDeck();break;
     case 'refresh':refreshAll(false);renderSync();break;
@@ -796,7 +904,7 @@ document.addEventListener('click',async ev=>{
     case 'scanauto':S.scan.auto=!S.scan.auto;if(S.scan.auto)autoLoop();updateScanUI();break;
     case 'scanopen':if(S.scan.card)openCard(S.scan.card.id);break;
     case 'scanadd':{const c=S.scan.card,foil=el.dataset.foil==='1';if(c){collAdd(c.id,foil,1);S.scan.log.push({id:c.id,foil});scanDone('Added '+c.name+(foil?' (foil)':''));}break;}
-    case 'scandeck':{const c=S.scan.card,d=S.target&&deckById(S.target);if(c&&d){deckAdd(d,c.id,'main',1);scanDone('Added '+c.name+' to '+d.name);}break;}
+    case 'scandeck':{const c=S.scan.card,d=S.target&&deckById(S.target);if(c&&d){deckAdd(d,c.id,S.targetBoard||'main',1);scanDone('Added '+c.name+' to '+d.name+(S.targetBoard==='wish'?' wishlist':''));}break;}
     case 'scanskip':scanDone('');break;
     case 'scanprints':loadPrints();break;
     case 'scanpick':{const p=S.cards.get(id);if(p){S.scan.card=p;updateScanUI();}break;}
@@ -809,10 +917,14 @@ document.addEventListener('click',async ev=>{
 document.addEventListener('input',ev=>{
   if(ev.target.id==='q'){S.search.q=ev.target.value;clearTimeout(runSearch.t);runSearch.t=setTimeout(()=>runSearch(),450);}
   if(ev.target.id==='dn'){clearTimeout(suggestNames.t);const v=ev.target.value;suggestNames.t=setTimeout(()=>suggestNames(v),250);}
-  if(ev.target.id==='cq'){S.collQ=ev.target.value;S.collLimit=100;renderCollList();}
+  if(ev.target.id==='cq'){S.collQ=ev.target.value;S.collLimit=90;renderCollList();}
+  if(ev.target.id==='ftext'){S.filt.text=ev.target.value;S.collLimit=90;renderCollList();}
+  if(ev.target.id==='ccols'){const n=+ev.target.value,g=$('.cgrid');S.collCols=n;$('#colsn').textContent=n;if(g)g.style.setProperty('--cols',n);}
 });
 document.addEventListener('change',ev=>{
-  if(ev.target.id==='csort'){S.collSort=ev.target.value;renderCollList();}
+  if(ev.target.id==='csort'){S.collSort=ev.target.value;savePrefs();renderCollList();}
+  if(ev.target.id==='ccols'){S.collCols=+ev.target.value;savePrefs();renderCollList();}
+  if(ev.target.id==='fset'){S.filt.set=ev.target.value;S.collLimit=90;renderCollList();}
   if(ev.target.id==='csvfile'&&ev.target.files[0])importCSV(ev.target.files[0]);
   if(ev.target.id==='jsonfile'&&ev.target.files[0])restoreJSON(ev.target.files[0]);
 });
