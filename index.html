@@ -353,7 +353,18 @@ function setHeader(o){
 
 /* ---------- views ---------- */
 function buildNav(){$('#nav').innerHTML=NAV.map(([k,l,i])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}"><span class="pill">${i}</span>${l}</button>`).join('');}
-function setTab(t){stopCamera();S.tab=t;S.deckId=null;buildNav();render();scrollTo(0,0);}
+/* browser history, so the phone's Back button steps back through screens */
+let navIdx=0;
+const snap=()=>({i:navIdx,tab:S.tab,deckId:S.deckId,dtab:S.dtab});
+function pushNav(){navIdx++;try{history.pushState(snap(),'');}catch(e){}}
+function replaceNav(){try{history.replaceState(snap(),'');}catch(e){}}
+function navBack(){if(navIdx>0)history.back();else{S.deckId=null;renderDeckList();scrollTo(0,0);}}
+addEventListener('popstate',ev=>{
+  const st=ev.state;if(!st||typeof st.i!=='number')return;
+  const dl=$('#dlg');if(dl&&dl.open)dl.close();
+  navIdx=st.i;stopCamera();S.tab=st.tab||'search';S.deckId=st.deckId||null;S.dtab=st.dtab||'cards';buildNav();render();scrollTo(0,0);
+});
+function setTab(t){const changed=t!==S.tab||!!S.deckId;stopCamera();S.tab=t;S.deckId=null;buildNav();if(changed)pushNav();render();scrollTo(0,0);}
 function render(){({search:renderSearch,coll:renderColl,decks:renderDecks,scan:renderScan,sync:renderSync})[S.tab]();}
 function refreshView(){const t=S.tab;if(t==='search')renderResults();else if(t==='coll')renderCollList();else if(t==='decks')renderDecks();else if(t==='scan')updateScanUI();else renderSync();}
 
@@ -736,17 +747,17 @@ document.addEventListener('click',async ev=>{
     case 'sinc':collAdd(sheetId,el.dataset.foil==='1',+el.dataset.d);renderSheet();refreshView();break;
     case 'sdeckadd':{const d=deckById($('#sdeck').value);sheetBoard=$('#sboard').value;if(d){deckAdd(d,sheetId,sheetBoard,1);toast('Added to '+d.name);refreshView();}break;}
     case 'prints2':{$('#dlg').close();S.search.q='!"'+el.dataset.name+'"';S.search.prints=true;setTab('search');runSearch();break;}
-    case 'deck':S.deckId=id;S.dtab='cards';renderDeck();scrollTo(0,0);break;
-    case 'opendeck':S.deckId=id;S.dtab='cards';S.tab='decks';buildNav();renderDeck();scrollTo(0,0);break;
-    case 'back':S.deckId=null;renderDeckList();scrollTo(0,0);break;
-    case 'dtab':S.dtab=el.dataset.t;renderDeck();break;
+    case 'deck':S.deckId=id;S.dtab='cards';pushNav();renderDeck();scrollTo(0,0);break;
+    case 'opendeck':S.deckId=id;S.dtab='cards';S.tab='decks';buildNav();pushNav();renderDeck();scrollTo(0,0);break;
+    case 'back':navBack();break;
+    case 'dtab':S.dtab=el.dataset.t;replaceNav();renderDeck();break;
     case 'cleartarget':S.target=null;renderSearch();break;
     case 'adddeck':S.target=S.deckId;setTab('search');break;
     case 'dinc':deckAdd(deckById(S.deckId),id,el.dataset.board,1);renderDeck();break;
     case 'ddec':deckAdd(deckById(S.deckId),id,el.dataset.board,-1);renderDeck();break;
     case 'copydeck':{const t=deckText(deckById(S.deckId));try{await navigator.clipboard.writeText(t);toast('Deck list copied');}catch{download('deck.txt',t,'text/plain');}break;}
     case 'renamedeck':{const d=deckById(S.deckId);const n=prompt('Deck name',d.name);if(n&&n.trim()){d.name=n.trim().slice(0,60);saveDeck(d);renderDeck();}break;}
-    case 'deletedeck':{const d=deckById(S.deckId);if(confirm('Delete "'+d.name+'"? Your collection is not affected.')){S.decks=S.decks.filter(x=>x!==d);idb.del('decks',d.id);S.target=S.target===d.id?null:S.target;renderDeckList();scrollTo(0,0);}break;}
+    case 'deletedeck':{const d=deckById(S.deckId);if(confirm('Delete "'+d.name+'"? Your collection is not affected.')){S.decks=S.decks.filter(x=>x!==d);idb.del('decks',d.id);S.target=S.target===d.id?null:S.target;navBack();}break;}
     case 'deck2coll':{const d=deckById(S.deckId),plan=deckToCollection(d,el.dataset.mode),n=plan.reduce((a,x)=>a+x.qty,0);
       if(!n){toast(el.dataset.mode==='all'?'This deck is empty':'You already own every card in this deck');break;}
       if(confirm('Add '+n+' card'+(n===1?'':'s')+' from "'+d.name+'" to your collection?')){plan.forEach(x=>collAdd(x.id,false,x.qty));toast('Added '+n+' card'+(n===1?'':'s')+' to your collection');renderDeck();}
@@ -781,7 +792,7 @@ document.addEventListener('change',ev=>{
 });
 document.addEventListener('submit',ev=>{
   if(ev.target.id==='newdeck'){ev.preventDefault();const n=$('#dn').value.trim();if(!n)return;
-    const d={id:uid(),name:n.slice(0,60),format:$('#df').value,cards:[],created:Date.now(),updated:Date.now()};S.decks.push(d);saveDeck(d);S.deckId=d.id;S.dtab='cards';renderDeck();}
+    const d={id:uid(),name:n.slice(0,60),format:$('#df').value,cards:[],created:Date.now(),updated:Date.now()};S.decks.push(d);saveDeck(d);S.deckId=d.id;S.dtab='cards';pushNav();renderDeck();}
 });
 function openImportDeck(){
   const d=deckById(S.deckId);
@@ -820,6 +831,7 @@ async function load(){
     db=await openDB();await load();
     if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
   }catch(e){setHeader({title:'Pocket Binder'});$('#view').innerHTML='<p class="err">This browser blocked on-device storage, so nothing can be saved. Try opening the app in Chrome outside private mode.</p>';return;}
+  if(history.state&&typeof history.state.i==='number'){const st=history.state;navIdx=st.i;S.tab=st.tab||'search';S.deckId=st.deckId||null;S.dtab=st.dtab||'cards';buildNav();}else replaceNav();
   render();
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
   // Refresh once a day, and right away if saved cards are missing newer fields (art, colors).
