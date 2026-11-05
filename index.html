@@ -497,7 +497,7 @@ function renderSearch(){
     <div class="bar"><div class="seg" role="group" aria-label="Search mode"><button data-a="smode" data-v="find" aria-pressed="${!shuf}">Search</button><button data-a="smode" data-v="shuffle" aria-pressed="${shuf}">Shuffle</button></div></div>
     ${shuf?`<div id="shufui"></div><div id="results"></div>`:`
     <div class="bar"><label class="searchbox">${IC.search}<input id="q" type="search" placeholder="Search cards, e.g. t:goblin c:r cmc<=2" enterkeyhint="search" autocomplete="off" value="${esc(s.q)}"></label></div>
-    <div class="bar"><button class="chip" data-a="prints" aria-pressed="${s.prints}">All printings</button><span class="sub">Scryfall search syntax works</span></div>
+    <div class="bar"><button class="chip" data-a="prints" aria-pressed="${s.prints}">All printings</button><span class="sub">Add a number to find a printing, e.g. Sol Ring 21</span></div>
     <div id="results"></div>`}`;
   if(shuf)renderShuffleUI();
   renderResults();
@@ -570,17 +570,52 @@ async function shuffleCards(){
   }catch(e){if(seq===h.seq)h.err=navigator.onLine?e.message:'No connection. Shuffle needs the internet; your collection and decks still work offline.';}
   finally{if(seq===h.seq){h.loading=false;if(h.cards.length)h.fopen=false;renderShuffleUI();renderShuffleResults();}}
 }
+/* "Return of the Wildspeaker 203", "Sol Ring FRC 21", "Sol Ring (FRC) 21" or "FDN 203" -> a specific printing */
+let KNOWN_SETS=null;
+async function loadSets(){
+  if(KNOWN_SETS)return;
+  try{const j=JSON.parse(localStorage.getItem('pb-sets')||'null');if(j&&Date.now()-j.t<30*864e5&&j.c&&j.c.length){KNOWN_SETS=new Set(j.c);return;}}catch(e){}
+  try{const r=await sf('/sets');KNOWN_SETS=new Set((r.data||[]).map(x=>x.code));try{localStorage.setItem('pb-sets',JSON.stringify({t:Date.now(),c:[...KNOWN_SETS]}));}catch(e){}}catch(e){}
+}
+function searchAttempts(q){
+  q=q.trim();const raw=[{q,prints:null}];
+  if(/[:=<>!]/.test(q))return raw;
+  const t=q.split(/\s+/);if(t.length<2)return raw;
+  const num=t[t.length-1];if(!/^\d{1,4}[a-z★]?$/i.test(num))return raw;
+  const rest=t.slice(0,-1),last=rest[rest.length-1];
+  const clean=w=>w.join(' ').replace(/["\\()]/g,'').trim();
+  const cn=num.toLowerCase(),m=/^\(?([a-z0-9]{3,5})\)?$/i.exec(last),paren=/^\(.*\)$/.test(last);
+  const setTry=m?{q:`${clean(rest.slice(0,-1))?`"${clean(rest.slice(0,-1))}" `:''}set:${m[1].toLowerCase()} cn:${cn}`,prints:true}:null;
+  const nm=clean(rest),nameTry=nm&&!paren?{q:`"${nm}" cn:${cn}`,prints:true}:null;
+  const known=m&&KNOWN_SETS&&KNOWN_SETS.has(m[1].toLowerCase());
+  const out=[];
+  if(setTry&&(paren||known))out.push(setTry);          // a real set code: use it first
+  if(nameTry)out.push(nameTry);                          // otherwise treat everything as the name
+  if(setTry&&!paren&&!known&&!KNOWN_SETS)out.push(setTry); // set list unavailable: still try it
+  return out.concat(raw);
+}
 async function runSearch(more){
   const s=S.search,q=s.q.trim();if(!more&&!q){s.results=[];s.empty=false;s.err='';renderResults();return;}
   const seq=++s.seq;s.loading=true;s.err='';s.empty=false;renderResults();
   try{
-    const j=more?await sf(s.next):await sf(`/cards/search?q=${encodeURIComponent(q)}&unique=${s.prints?'prints':'cards'}&order=name`);
+    let j;
+    if(more)j=await sf(s.next);
+    else{
+      if(/\s\(?\w+\)?\s+\d{1,4}[a-z★]?\s*$/i.test(q)||/\s\d{1,4}[a-z★]?\s*$/i.test(q))await loadSets();
+      if(seq!==s.seq)return;
+      const tries=searchAttempts(q);let lastErr;
+      for(const t of tries){
+        try{j=await sf(`/cards/search?q=${encodeURIComponent(t.q)}&unique=${(t.prints===null?s.prints:t.prints)?'prints':'cards'}&order=name`);if(seq!==s.seq)return;break;}
+        catch(e){if(seq!==s.seq)return;lastErr=e;if(e.status!==404&&e.status!==400)throw e;}
+      }
+      if(!j)throw lastErr;
+    }
     if(seq!==s.seq)return;
     const cs=remember(j.data,false);
     s.results=more?s.results.concat(cs):cs;s.total=j.total_cards||s.results.length;s.next=j.has_more?j.next_page:null;
   }catch(e){
     if(seq!==s.seq)return;
-    if(e.status===404){if(!more){s.results=[];s.total=0;s.next=null;}s.empty=!more;}
+    if(e.status===404||e.status===400){if(!more){s.results=[];s.total=0;s.next=null;}s.empty=!more;}
     else s.err=navigator.onLine?e.message:'No connection. Search needs the internet; your collection and decks still work offline.';
   }finally{if(seq===s.seq){s.loading=false;renderResults();}}
 }
