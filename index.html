@@ -160,6 +160,11 @@ dialog::backdrop{background:#000a}
 .ctile img{width:100%;aspect-ratio:488/680;object-fit:cover;border-radius:6px;background:var(--raise);display:block}
 .ctile .cap{display:block;margin-top:4px;font-size:13px;line-height:1.3;color:var(--muted)}
 .ctile .cap b{display:block;color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctile .iw{display:block;position:relative}
+.ctile .db{position:absolute;left:5px;bottom:5px;display:inline-flex;align-items:center;gap:2px;background:var(--accent);color:#1a1200;border-radius:999px;font-size:11px;font-weight:800;padding:2px 6px;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.ctile .db .ic{width:13px;height:13px}
+.indeck{flex:none;display:inline-flex;align-items:center;gap:3px;background:var(--accent-soft);color:var(--accent);border-radius:999px;font-size:11.5px;font-weight:700;padding:1px 8px}
+.indeck .ic{width:12px;height:12px}
 .ctile .qb{position:absolute;right:5px;top:5px;background:rgba(0,0,0,.72);color:#fff;border-radius:999px;font-size:12px;font-weight:700;padding:1px 8px;pointer-events:none}
 .ctile .fb{position:absolute;left:5px;top:5px;background:linear-gradient(135deg,#8fb2ff,#f5a31a);color:#111;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.04em;padding:2px 7px;pointer-events:none}
 .sec .ic{width:18px;height:18px;color:var(--muted)}
@@ -360,7 +365,7 @@ const idb={
   clear:s=>new Promise((res,rej)=>{const t=db.transaction(s,'readwrite');t.objectStore(s).clear();t.oncomplete=()=>res();t.onerror=()=>rej(t.error);})
 };
 
-const FILT0=()=>({types:[],colors:[],cmode:'any',cmc:[],rarity:[],foil:'any',set:'',text:''});
+const FILT0=()=>({types:[],colors:[],cmode:'any',cmc:[],rarity:[],foil:'any',deck:'any',set:'',text:''});
 const S={cards:new Map(),coll:new Map(),decks:[],lastRefresh:0,tab:'search',deckId:null,dtab:'cards',target:null,targetBoard:'main',collView:'grid',collCols:3,filt:null,busy:false,collQ:'',collSort:'name',collLimit:90,
   shuf:null,
   search:{mode:'find',q:'',prints:false,results:[],next:null,total:0,loading:false,err:'',empty:false,seq:0},
@@ -581,7 +586,7 @@ async function runSearch(more){
 }
 
 /* collection */
-function activeFilters(){const f=S.filt;return (f.types.length?1:0)+(f.colors.length?1:0)+(f.cmc.length?1:0)+(f.rarity.length?1:0)+(f.foil!=='any'?1:0)+(f.set?1:0)+(f.text.trim()?1:0);}
+function activeFilters(){const f=S.filt;return (f.types.length?1:0)+(f.colors.length?1:0)+(f.cmc.length?1:0)+(f.rarity.length?1:0)+(f.foil!=='any'?1:0)+(f.deck!=='any'?1:0)+(f.set?1:0)+(f.text.trim()?1:0);}
 function passesFilters(c,e){
   const f=S.filt;
   if(f.types.length&&!f.types.some(t=>(c.type||'').includes(t)))return false;
@@ -596,12 +601,18 @@ function passesFilters(c,e){
   if(f.rarity.length&&!f.rarity.includes(c.rarity))return false;
   if(f.foil==='foil'&&!e.foil)return false;
   if(f.foil==='nonfoil'&&!e.qty)return false;
+  if(f.deck==='in'&&!deckUse(c.id))return false;
+  if(f.deck==='out'&&deckUse(c.id))return false;
   if(f.set&&c.set!==f.set)return false;
   const words=f.text.toLowerCase().split(/\s+/).filter(Boolean);
   if(words.length){const t=(c.text||'').toLowerCase();if(!words.every(w=>t.includes(w)))return false;}
   return true;
 }
-function collAllItems(){return [...S.coll.values()].map(e=>({e,c:S.cards.get(e.id)})).filter(x=>x.c);}
+/* copies of each printing currently placed in a deck (wishlist cards don't count) */
+let _du=null;
+function deckUse(id){if(!_du){_du=new Map();for(const d of S.decks)for(const e of d.cards){if(e.board==='wish')continue;_du.set(e.id,(_du.get(e.id)||0)+e.qty);}}return _du.get(id)||0;}
+function deckNames(id){return S.decks.filter(d=>d.cards.some(e=>e.id===id&&e.board!=='wish')).map(d=>d.name);}
+function collAllItems(){_du=null;return [...S.coll.values()].map(e=>({e,c:S.cards.get(e.id)})).filter(x=>x.c);}
 function collFiltered(all){
   let items=all;
   const q=S.collQ.trim().toLowerCase();
@@ -636,9 +647,9 @@ function renderCollList(){
   const shown=items.slice(0,S.collLimit),more=items.length>shown.length?`<div class="bar"><button class="btn" data-a="showmore">Show more (${items.length-shown.length} left)</button></div>`:'';
   if(S.collView==='grid'){
     const cols=S.collCols,big=cols<=2;
-    el.innerHTML=`<div class="cgrid" style="--cols:${cols}">`+shown.map(({e,c})=>`<div class="ctile"><button class="open" data-a="card" data-id="${c.id}"><img src="${esc(big?(c.imgL||c.img):c.img)}" alt="${esc(c.name)}" loading="lazy">${big?`<span class="cap"><b>${esc(c.name)}</b>${esc(c.set.toUpperCase())} #${esc(c.cn)} · ${money(entryValue(e))}</span>`:''}</button><span class="qb">×${e.qty+e.foil}</span>${e.foil?'<span class="fb">FOIL</span>':''}</div>`).join('')+'</div>'+more;
+    el.innerHTML=`<div class="cgrid" style="--cols:${cols}">`+shown.map(({e,c})=>`<div class="ctile"><button class="open" data-a="card" data-id="${c.id}"><span class="iw"><img src="${esc(big?(c.imgL||c.img):c.img)}" alt="${esc(c.name)}" loading="lazy">${deckUse(c.id)?`<span class="db" title="In: ${esc(deckNames(c.id).join(', '))}" aria-label="In ${deckNames(c.id).length} deck${deckNames(c.id).length===1?'':'s'}">${IC.decks}${deckUse(c.id)>1?deckUse(c.id):''}</span>`:''}</span>${big?`<span class="cap"><b>${esc(c.name)}</b>${esc(c.set.toUpperCase())} #${esc(c.cn)} · ${money(entryValue(e))}</span>`:''}</button><span class="qb">×${e.qty+e.foil}</span>${e.foil?'<span class="fb">FOIL</span>':''}</div>`).join('')+'</div>'+more;
   }else{
-    el.innerHTML=shown.map(({e,c})=>`<div class="row" data-a="card" data-id="${c.id}">${art(c)}<div class="rmain"><b>${esc(c.name)}</b><div class="line">${typeIcon(typeGroup(c.type))}${costHTML(c.mana)}<span class="sub">${esc(c.set.toUpperCase())} #${esc(c.cn)} · ${money(entryValue(e))}${e.foil?` · ${e.foil} foil`:''}</span></div></div>
+    el.innerHTML=shown.map(({e,c})=>`<div class="row" data-a="card" data-id="${c.id}">${art(c)}<div class="rmain"><b>${esc(c.name)}</b><div class="line">${typeIcon(typeGroup(c.type))}${costHTML(c.mana)}<span class="sub">${esc(c.set.toUpperCase())} #${esc(c.cn)} · ${money(entryValue(e))}${e.foil?` · ${e.foil} foil`:''}</span>${deckUse(c.id)?`<span class="indeck" title="${esc(deckNames(c.id).join(', '))}">${IC.decks}${deckUse(c.id)>1?deckUse(c.id)+' in decks':'In deck'}</span>`:''}</div></div>
       <div class="qty" data-stop><button data-a="dec" data-id="${c.id}" aria-label="Remove one">−</button><span>${e.qty+e.foil}</span><button data-a="inc" data-id="${c.id}" aria-label="Add one">+</button></div></div>`).join('')+more;
   }
 }
@@ -655,6 +666,7 @@ function renderFilters(){
     <h3>Mana value</h3><div class="chips">${[0,1,2,3,4,5,6,7].map(n=>chip('fcmc',n,n===7?'7+':String(n),f.cmc.includes(n))).join('')}</div>
     <h3>Rarity</h3><div class="chips">${['common','uncommon','rare','mythic'].map(r=>chip('frar',r,r[0].toUpperCase()+r.slice(1),f.rarity.includes(r))).join('')}</div>
     <h3>Finish</h3><div class="chips">${[['any','Any'],['foil','Has foil'],['nonfoil','Has non-foil']].map(([v,l])=>chip('ffoil',v,l,f.foil===v)).join('')}</div>
+    <h3>Decks</h3><div class="chips">${[['any','Any'],['in','In a deck'],['out','Not in a deck']].map(([v,l])=>chip('fdeck',v,l,f.deck===v)).join('')}</div>
     <h3>Set</h3><select id="fset" aria-label="Set"><option value="">Any set</option>${sets.map(([c,n])=>`<option value="${esc(c)}" ${f.set===c?'selected':''}>${esc(n)} (${esc(c.toUpperCase())})</option>`).join('')}</select>
     <h3>Rules text contains</h3><input type="text" id="ftext" placeholder="e.g. flying, draw a card, destroy target" value="${esc(f.text)}" autocomplete="off">
     <div class="bar" style="margin-top:18px"><button class="btn primary" id="fdone" data-a="fdone" style="flex:1">Show cards</button></div></div>`;
@@ -1231,6 +1243,7 @@ document.addEventListener('click',async ev=>{
     case 'fcmc':toggleIn(S.filt.cmc,+el.dataset.v);S.collLimit=90;renderFilters();break;
     case 'frar':toggleIn(S.filt.rarity,el.dataset.v);S.collLimit=90;renderFilters();break;
     case 'fmode':S.filt.cmode=el.dataset.v;renderFilters();break;
+    case 'fdeck':S.filt.deck=el.dataset.v;S.collLimit=90;renderFilters();break;
     case 'ffoil':S.filt.foil=el.dataset.v;S.collLimit=90;renderFilters();break;
     case 'fclear':{S.filt=FILT0();S.collQ='';S.collLimit=90;const q=$('#cq');if(q)q.value='';if($('#dlg').open&&$('#fdone'))renderFilters();else renderCollList();break;}
     case 'fdone':$('#dlg').close();break;
