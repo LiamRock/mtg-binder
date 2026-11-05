@@ -197,6 +197,44 @@ body.life-on .app{padding:0;max-width:none}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:hsl(var(--h) 60% 60%)}
 .lmenu{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;background:var(--surface);color:var(--ink);border:1px solid var(--line);z-index:3;display:grid;place-items:center;box-shadow:0 2px 10px #0007}
 .diceout{font:700 44px/1.1 var(--sans);text-align:center;padding:10px 0;min-height:64px;font-variant-numeric:tabular-nums}
+.ptile.art{background-size:cover!important;background-position:center!important}
+.ptile.art .plife b,.ptile.art .pname,.ptile.art .pc,.ptile.art .pdelta,.ptile.art .clabel{text-shadow:0 1px 8px rgba(0,0,0,.9)}
+.ptile.spin{box-shadow:inset 0 0 0 5px #fff;filter:brightness(1.35)}
+.pbadge{position:absolute;top:4px;right:8px;display:flex;gap:2px;pointer-events:none;z-index:2}
+.pbadge .ic{width:28px;height:28px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))}
+.pbadge .crown{color:#ffd24a}.pbadge .crown .ic{fill:rgba(255,210,74,.35)}
+.pbadge .heal{color:#ffb3c1}
+.pname.static{pointer-events:none}
+.clabel{font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;opacity:.9;text-align:center;max-width:80%;line-height:1.25;margin-bottom:2px}
+.ptile.cmdsrc .zone{color:rgba(255,255,255,.55)}
+.ptile.lethal .plife b{color:#ff8a80}
+.ptile.cmdrecv{box-shadow:inset 0 0 0 4px #ff8a80}
+.cmdhint{display:inline-flex;align-items:center;gap:4px}
+.cmdhint .ic{width:16px;height:16px}
+.pbres{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.pbres button{text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-weight:600}
+.pbprev{height:110px;border-radius:12px;background:var(--raise) center/cover;margin:8px 0;display:grid;place-items:end start;padding:8px 12px;color:#fff;font-weight:700;text-shadow:0 1px 6px #000;font-size:14px}
+.pbprev:empty{display:none}
+.stage{perspective:600px;display:grid;place-items:center;min-height:132px;margin:8px 0 4px}
+.coin{width:96px;height:96px;position:relative;transform-style:preserve-3d}
+.coin.hop{animation:hop 1.6s cubic-bezier(.3,.6,.4,1)}
+@keyframes hop{0%,100%{margin-top:0}40%{margin-top:-46px}}
+.cf{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;backface-visibility:hidden;-webkit-backface-visibility:hidden;font-weight:800;font-size:12px;letter-spacing:.08em;color:#4a3300;background:radial-gradient(circle at 35% 30%,#ffe9a3,#e0a82e 70%,#a87413);border:4px solid #c68f1f;box-shadow:inset 0 0 0 3px rgba(255,255,255,.25)}
+.cf .ic{width:38px;height:38px;display:block;margin:0 auto 2px}
+.cf.tail{transform:rotateY(180deg)}
+.die{width:92px;height:92px;border-radius:18px;background:#f7f4ec;box-shadow:inset 0 -4px 0 rgba(0,0,0,.12),0 4px 12px rgba(0,0,0,.4);display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:12px;gap:2px}
+.die i{border-radius:50%;margin:3px;background:transparent}.die i.on{background:#1b1b1e}
+.d20{width:112px;height:112px;position:relative;display:grid;place-items:center}
+.d20 svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.d20 .o{fill:var(--accent-soft);stroke:var(--accent);stroke-width:3;stroke-linejoin:round}
+.d20 .l{fill:none;stroke:var(--accent);stroke-width:1.6;opacity:.8;stroke-linejoin:round}
+.d20 b{position:relative;font:800 30px/1 var(--sans);font-variant-numeric:tabular-nums;color:var(--ink)}
+.d20.crit .o{fill:rgba(255,210,74,.35);stroke:#ffb800}.d20.fumble .o{fill:rgba(255,90,80,.28);stroke:#ff5a50}
+.tumble{animation:tumble .5s linear infinite}
+@keyframes tumble{0%{transform:rotate(0) scale(1)}50%{transform:rotate(180deg) scale(1.12)}100%{transform:rotate(360deg) scale(1)}}
+.land{animation:land .35s ease-out}
+@keyframes land{0%{transform:scale(1.3)}60%{transform:scale(.94)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.tumble,.land,.coin.hop{animation:none}}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:20;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.on{opacity:1}
 .foot{margin-top:28px;font-size:12px;color:var(--muted)}
@@ -287,6 +325,9 @@ const IC={
   info:svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>'),
   heart:svg('<path d="M12 20s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.5-7 10-7 10z"/>'),
   check:svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  crown:svg('<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5z"/><path d="M5 21h14"/>'),
+  bandaid:svg('<g transform="rotate(-45 12 12)"><rect x="1.5" y="7.5" width="21" height="9" rx="4.5"/><rect x="8.5" y="7.5" width="7" height="9"/></g><path d="M11 11h.01M13 11h.01M11 13h.01M13 13h.01"/>'),
+  sword:svg('<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/>'),
   menu:svg('<path d="M4 7h16M4 12h16M4 17h16"/>'),
   gear:svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>'),
   scan:svg('<path d="M4 8a2 2 0 012-2h2l1.5-2h5L16 6h2a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><circle cx="12" cy="12.5" r="3.5"/>')
@@ -881,11 +922,11 @@ function updateScanUI(){
 /* ---------- life counter ---------- */
 const PLAYER_HUES=[212,355,135,42,285,175];
 function newLife(n,start,old){
-  const players=[...Array(n)].map((_,i)=>({name:(old&&old.players[i]&&old.players[i].name)||'Player '+(i+1),life:start,poison:0,energy:0,exp:0,cmd:{}}));
+  const players=[...Array(n)].map((_,i)=>{const o=old&&old.players[i];return {name:(o&&o.name)||'Player '+(i+1),bg:(o&&o.bg)||'',bgName:(o&&o.bgName)||'',life:start,poison:0,energy:0,exp:0,cmd:{}};});
   return {n,start,players,awake:old?old.awake!==false:true};
 }
 function loadLife(){try{const j=JSON.parse(localStorage.getItem('pb-life')||'null');if(j&&Array.isArray(j.players)&&j.players.length>=2&&j.players.length<=6)return j;}catch(e){}return newLife(4,40);}
-S.life=loadLife();S.lifeView={};S.first=-1;S.lifePend=null;
+S.life=loadLife();S.lifeView={};S.first=-1;S.spin=-1;S.cmdMode=-1;S.lifePend=null;
 let lifeSaveT;function saveLife(now){clearTimeout(lifeSaveT);const go=()=>{try{localStorage.setItem('pb-life',JSON.stringify(S.life));}catch(e){}};if(now)go();else lifeSaveT=setTimeout(go,300);}
 const isDead=p=>p.life<=0||p.poison>=10||Object.values(p.cmd||{}).some(v=>v>=21);
 function lifeGeo(n,i){
@@ -898,54 +939,90 @@ function chipsHTML(p){
   const mx=Math.max(0,...Object.values(p.cmd||{}));if(mx)c.push('Cmdr '+mx);
   return c.map(t=>`<span class="pc">${t}</span>`).join('');
 }
+const artOK=u=>typeof u==='string'&&u.startsWith('https://cards.scryfall.io/');
 function mainHTML(i){
   const p=S.life.players[i];
   return `<button class="pname" data-a="lname" data-p="${i}">${esc(p.name)}</button>
-    <div class="pmain"><div class="zone m" data-p="${i}" data-d="-1"><span>−</span></div><div class="zone pl" data-p="${i}" data-d="1"><span>+</span></div><div class="plife"><b>${p.life}</b><i class="pdelta"></i></div></div>
-    <div class="pfoot"><span class="chips-here" style="display:contents">${chipsHTML(p)}</span><button class="pcbtn" data-a="lview" data-p="${i}">Counters</button></div>`;
+    <div class="pmain"><div class="zone m" data-p="${i}" data-d="-1"><span>−</span></div><div class="zone pl" data-p="${i}" data-d="1"><span>+</span></div><div class="plife"><b>${p.life}</b><i class="pdelta"></i></div><span class="pbadge"></span></div>
+    <div class="pfoot"><span class="chips-here" style="display:contents">${chipsHTML(p)}</span><button class="pcbtn" data-a="lview" data-p="${i}">Counters</button><button class="pcbtn" data-a="cmdstart" data-p="${i}" aria-label="Commander damage taken">${IC.sword}</button></div>`;
+}
+function cmdHTML(i){
+  const L=S.life,m=S.cmdMode,r=L.players[m],p=L.players[i];
+  if(i===m)return `<span class="pname static">${esc(p.name)}</span>
+    <div class="pmain"><div class="plife"><span class="clabel">Taking commander damage</span><b>${p.life}</b></div></div>
+    <div class="pfoot"><button class="pcbtn" data-a="cmddone">Done</button></div>`;
+  const v=r.cmd[i]||0;
+  return `<span class="pname static">${esc(p.name)}</span>
+    <div class="pmain"><div class="zone m" data-p="${i}" data-d="-1" data-cmd="${m}"><span>−</span></div><div class="zone pl" data-p="${i}" data-d="1" data-cmd="${m}"><span>+</span></div><div class="plife"><span class="clabel">Commander damage to ${esc(r.name)}</span><b>${v}</b></div></div>
+    <div class="pfoot"><span class="pc cmdhint">${IC.sword} lethal at 21</span></div>`;
 }
 function countsHTML(i){
-  const L=S.life,p=L.players[i];
-  const row=(label,v,k)=>`<div class="crow"><span>${label}</span><div class="cq"><button data-a="cdec" data-p="${i}" data-k="${k}" aria-label="Decrease">−</button><b>${v}</b><button data-a="cinc" data-p="${i}" data-k="${k}" aria-label="Increase">+</button></div></div>`;
-  const others=L.players.map((q,j)=>j===i?'':row(`<i class="dot" style="--h:${PLAYER_HUES[j%6]}"></i>${esc(q.name)}`,p.cmd[j]||0,'cmd:'+j)).join('');
+  const p=S.life.players[i];
+  const row=(label,v,k)=>`<div class="crow"><span>${label}</span><div class="cq"><button data-a="cdec" data-p="${i}" data-k="${k}" aria-label="Decrease ${label}">−</button><b>${v}</b><button data-a="cinc" data-p="${i}" data-k="${k}" aria-label="Increase ${label}">+</button></div></div>`;
   return `<div class="chead"><span>${esc(p.name)}</span><button class="pcbtn" data-a="lview" data-p="${i}">Done</button></div>
-    <div class="clist">${row('Poison',p.poison,'poison')}${row('Energy',p.energy,'energy')}${row('Experience',p.exp,'exp')}<div class="csub">Commander damage taken</div>${others}</div>`;
+    <div class="clist">${row('Poison',p.poison,'poison')}${row('Energy',p.energy,'energy')}${row('Experience',p.exp,'exp')}</div>`;
 }
-function tileHTML(i){
-  const L=S.life,p=L.players[i],g=lifeGeo(L.players.length,i);
-  return `<section class="ptile${g.rot?' rot':''}${isDead(p)?' dead':''}${S.first===i?' first':''}" data-p="${i}" style="--h:${PLAYER_HUES[i%6]};${g.span?'grid-column:1/-1;':''}">${S.lifeView[i]==='counts'?countsHTML(i):mainHTML(i)}</section>`;
+function tileClass(i){
+  const L=S.life,p=L.players[i],g=lifeGeo(L.players.length,i),m=S.cmdMode;
+  return 'ptile'+(g.rot?' rot':'')+(isDead(p)?' dead':'')+(S.first===i?' first':'')+(S.spin===i?' spin':'')+(artOK(p.bg)?' art':'')
+    +(m>=0?(i===m?' cmdrecv':' cmdsrc'+((L.players[m].cmd[i]||0)>=21?' lethal':'')):'');
 }
-function redrawTile(i){const t=$(`.ptile[data-p="${i}"]`);if(!t)return;const g=lifeGeo(S.life.players.length,i),p=S.life.players[i];
-  t.className='ptile'+(g.rot?' rot':'')+(isDead(p)?' dead':'')+(S.first===i?' first':'');t.innerHTML=S.lifeView[i]==='counts'?countsHTML(i):mainHTML(i);}
+function tileStyle(i){
+  const p=S.life.players[i],g=lifeGeo(S.life.players.length,i);
+  return `--h:${PLAYER_HUES[i%6]};${g.span?'grid-column:1/-1;':''}${artOK(p.bg)?`background:linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,.42)),url('${p.bg}') center/cover;`:''}`;
+}
+function tileInner(i){return S.cmdMode>=0?cmdHTML(i):S.lifeView[i]==='counts'?countsHTML(i):mainHTML(i);}
+function tileHTML(i){return `<section class="${tileClass(i)}" data-p="${i}" style="${tileStyle(i)}">${tileInner(i)}</section>`;}
+function updateBadges(){
+  const ps=S.life.players,mx=Math.max(...ps.map(p=>p.life)),mn=Math.min(...ps.map(p=>p.life));
+  const top=ps.filter(p=>p.life===mx),low=ps.filter(p=>p.life===mn);
+  ps.forEach((p,i)=>{const el=$(`.ptile[data-p="${i}"] .pbadge`);if(!el)return;
+    const hi=top.length===1&&top[0]===p,lo=low.length===1&&low[0]===p;
+    el.innerHTML=(hi?`<span class="crown" role="img" aria-label="Most life">${IC.crown}</span>`:'')+(lo?`<span class="heal" role="img" aria-label="Least life">${IC.bandaid}</span>`:'');});
+}
+function redrawTile(i){const t=$(`.ptile[data-p="${i}"]`);if(!t)return;t.className=tileClass(i);t.setAttribute('style',tileStyle(i));t.innerHTML=tileInner(i);updateBadges();}
+function redrawAll(){S.life.players.forEach((p,i)=>redrawTile(i));}
 function layoutLife(){const l=$('#life');if(!l)return;const h=$('#hdr').getBoundingClientRect(),n=$('#nav').getBoundingClientRect();l.style.top=h.bottom+'px';l.style.bottom=Math.max(0,innerHeight-n.top)+'px';}
 addEventListener('resize',layoutLife);
 function renderLife(){
   setHeader({title:'Life'});
   const L=S.life,n=L.players.length;
   $('#view').innerHTML=`<div class="life${n===2?' one':''}" id="life" style="--rows:${n===2?2:Math.ceil(n/2)}">${L.players.map((p,i)=>tileHTML(i)).join('')}<button class="lmenu" data-a="lmenu" aria-label="Game menu">${IC.menu}</button></div>`;
-  layoutLife();applyWake();
+  layoutLife();applyWake();updateBadges();
 }
 function lifeChange(i,d){
   const p=S.life.players[i];if(!p)return;
   p.life+=d;p.delta=(p.delta||0)+d;
   const t=$(`.ptile[data-p="${i}"]`);
   if(t){const b=t.querySelector('.plife b');if(b)b.textContent=p.life;const dl=t.querySelector('.pdelta');if(dl)dl.textContent=(p.delta>0?'+':'')+p.delta;t.classList.toggle('dead',isDead(p));}
+  updateBadges();
   clearTimeout(lifeChange['t'+i]);lifeChange['t'+i]=setTimeout(()=>{p.delta=0;const dl=$(`.ptile[data-p="${i}"] .pdelta`);if(dl)dl.textContent='';},1800);
   saveLife();
 }
 function counterChange(i,k,d){
   const p=S.life.players[i];if(!p)return;
-  if(k.startsWith('cmd:')){const j=k.slice(4),old=p.cmd[j]||0,nv=Math.max(0,old+d);p.cmd[j]=nv;p.life-=nv-old;}
-  else p[k]=Math.max(0,(p[k]||0)+d);
+  p[k]=Math.max(0,(p[k]||0)+d);
   saveLife();redrawTile(i);
 }
-const holds=new Map();
+function cmdChange(r,src,d){
+  const p=S.life.players[r];if(!p)return;
+  const old=p.cmd[src]||0,nv=Math.max(0,old+d);if(nv===old)return;
+  p.cmd[src]=nv;p.life-=nv-old;
+  const st=$(`.ptile[data-p="${src}"]`),rt=$(`.ptile[data-p="${r}"]`);
+  if(st){const b=st.querySelector('.plife b');if(b)b.textContent=nv;st.classList.toggle('lethal',nv>=21);}
+  if(rt){const b=rt.querySelector('.plife b');if(b)b.textContent=p.life;rt.classList.toggle('dead',isDead(p));}
+  updateBadges();saveLife();
+}
+/* tap = 1; hold = 10 at a time */
+const holds=new Map(),HOLD_MS=480,STEP_MS=650;
 function clearHold(id){const h=holds.get(id);if(h){clearTimeout(h.t);clearInterval(h.iv);holds.delete(id);}}
 document.addEventListener('pointerdown',ev=>{
   const z=ev.target.closest&&ev.target.closest('.zone');if(!z)return;
   const i=+z.dataset.p,d=+z.dataset.d,id=ev.pointerId??0;
-  clearHold(id);lifeChange(i,d);
-  const h={n:0};h.t=setTimeout(()=>{h.iv=setInterval(()=>{h.n++;lifeChange(i,d*(h.n>12?5:1));},130);},420);holds.set(id,h);
+  clearHold(id);
+  if(z.dataset.cmd!==undefined){cmdChange(+z.dataset.cmd,i,d);return;}
+  lifeChange(i,d);
+  const h={};h.t=setTimeout(()=>{lifeChange(i,d*9);h.iv=setInterval(()=>lifeChange(i,d*10),STEP_MS);},HOLD_MS);holds.set(id,h);
 });
 ['pointerup','pointercancel'].forEach(t=>document.addEventListener(t,ev=>clearHold(ev.pointerId??0)));
 document.addEventListener('contextmenu',ev=>{if(ev.target.closest&&ev.target.closest('.life'))ev.preventDefault();});
@@ -961,9 +1038,94 @@ function lifeMenu(){
     <h3>Players</h3><div class="chips">${[2,3,4,5,6].map(n=>chip('lpn',n,n,pend.n===n)).join('')}</div>
     <h3>Starting life</h3><div class="chips">${[20,25,30,40,50].map(n=>chip('lstart',n,n,pend.start===n)).join('')}</div>
     <div class="bar"><button class="btn primary" data-a="lnew" style="flex:1">Start new game</button></div>
-    <h3>Dice and coin</h3><div class="diceout" id="diceout" aria-live="polite">–</div>
-    <div class="chips" style="justify-content:center"><button class="btn" data-a="ldie" data-n="6">d6</button><button class="btn" data-a="ldie" data-n="20">d20</button><button class="btn" data-a="ldie" data-n="2" data-coin="1">Coin</button><button class="btn" data-a="lfirst">Random first player</button></div>
+    <h3>Dice and coin</h3><div class="stage" id="dicestage"></div><div class="diceout" id="diceout" aria-live="polite">–</div>
+    <div class="chips" style="justify-content:center"><button class="btn" data-a="ldie" data-k="d6">d6</button><button class="btn" data-a="ldie" data-k="d20">d20</button><button class="btn" data-a="ldie" data-k="coin">Coin flip</button><button class="btn" data-a="lfirst">Random first player</button></div>
     <h3>Screen</h3><div class="chips"><button class="chip" data-a="lawake" aria-pressed="${L.awake}">Keep screen awake</button></div></div>`;
+}
+
+
+/* ---------- dice, coin, first-player spin, player sheet ---------- */
+const reduceMotion=()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}};
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+const dieHTML=n=>`<div class="die" id="die" role="img" aria-label="Die showing ${n}">${[...Array(9)].map((_,k)=>`<i${PIPS[n].includes(k)?' class="on"':''}></i>`).join('')}</div>`;
+const d20HTML=n=>`<div class="d20" id="d20"><svg viewBox="0 0 100 100" aria-hidden="true"><polygon class="o" points="50,4 91,27 91,73 50,96 9,73 9,27"/><polygon class="l" points="50,22 79,68 21,68"/><path class="l" d="M50 4V22M91 27L79 68M9 27L21 68M50 96L21 68M50 96L79 68M9 73L21 68M91 73L79 68M9 27L50 22M91 27L50 22"/></svg><b>${n}</b></div>`;
+const coinHTML=()=>`<div class="coin" id="coin"><div class="cf head">${IC.crown}<span>HEADS</span></div><div class="cf tail"><span style="font-size:30px;line-height:1">★</span><span>TAILS</span></div></div>`;
+let rollTok=0;
+function rollVisual(kind){
+  const stage=$('#dicestage'),out=$('#diceout');if(!stage)return;
+  const tok=++rollTok,still=reduceMotion();
+  const rnd=n=>1+Math.floor(Math.random()*n);
+  if(kind==='coin'){
+    const r=rnd(2);stage.dataset.result=r===1?'Heads':'Tails';out.textContent='Flipping…';stage.innerHTML=coinHTML();
+    const c=$('#coin');
+    const done=()=>{if(tok===rollTok)out.textContent=stage.dataset.result;};
+    if(still){c.style.transform=r===1?'':'rotateY(180deg)';done();return;}
+    c.classList.add('hop');c.getBoundingClientRect();
+    c.style.transition='transform 1.6s cubic-bezier(.25,.7,.25,1)';c.style.transform=`rotateY(${5*360+(r===1?0:180)}deg)`;
+    setTimeout(done,1650);return;
+  }
+  const n=kind==='d6'?6:20,r=rnd(n);stage.dataset.result=r;out.textContent='Rolling…';
+  const draw=v=>{stage.innerHTML=n===6?dieHTML(v):d20HTML(v);return stage.firstElementChild;};
+  const fin=()=>{if(tok!==rollTok)return;const el=draw(r);el.classList.add('land');
+    if(n===20){el.classList.toggle('crit',r===20);el.classList.toggle('fumble',r===1);}
+    out.textContent=n===20&&r===20?'20 — natural 20!':n===20&&r===1?'1 — critical fail':String(r);};
+  if(still){fin();return;}
+  let t0=Date.now();draw(rnd(n)).classList.add('tumble');
+  const iv=setInterval(()=>{if(tok!==rollTok){clearInterval(iv);return;}
+    if(Date.now()-t0>1000){clearInterval(iv);fin();return;}
+    const el=stage.firstElementChild,v=rnd(n);
+    if(n===6){el.outerHTML=dieHTML(v);stage.firstElementChild.classList.add('tumble');}
+    else{el.querySelector('b').textContent=v;}},85);
+}
+let spinTok=0;
+async function spinFirst(){
+  const L=S.life,alive=L.players.map((p,i)=>i).filter(i=>!isDead(L.players[i])),pool=alive.length?alive:L.players.map((p,i)=>i);
+  const tok=++spinTok,k=pool.length,target=Math.floor(Math.random()*k);
+  const prevF=S.first,prevS=S.spin;S.first=-1;S.spin=-1;if(prevF>=0)redrawTile(prevF);if(prevS>=0)redrawTile(prevS);
+  const N=target+1+k*Math.ceil(Math.max(0,14-(target+1))/k);
+  const quick=reduceMotion();
+  for(let j=0;j<N&&!quick;j++){
+    if(tok!==spinTok||S.tab!=='life')return;
+    const idx=pool[j%k],old=S.spin;S.spin=idx;
+    if(old>=0&&old!==idx){const o=$(`.ptile[data-p="${old}"]`);if(o)o.classList.remove('spin');}
+    const t=$(`.ptile[data-p="${idx}"]`);if(t)t.classList.add('spin');
+    try{navigator.vibrate&&navigator.vibrate(8);}catch(e){}
+    await sleep(55+Math.round(340*Math.pow(j/N,2.5)));
+  }
+  if(tok!==spinTok)return;
+  const win=pool[target];S.spin=-1;S.first=win;
+  redrawAll();
+  try{navigator.vibrate&&navigator.vibrate([30,40,60]);}catch(e){}
+  toast(L.players[win].name+' goes first');
+  setTimeout(()=>{if(tok===spinTok&&S.first===win){S.first=-1;redrawTile(win);}},6000);
+}
+function playerSheet(i){
+  const p=S.life.players[i];S.psheet={i,bg:p.bg||'',bgName:p.bgName||''};
+  $('#dlg').innerHTML=`<div class="sheet"><div class="bar" style="justify-content:space-between;margin:0"><h2 style="margin:0">Player ${i+1}</h2><button class="btn small" data-a="close">Close</button></div>
+    <h3>Name</h3><input type="text" id="pnin" maxlength="20" value="${esc(p.name)}" autocomplete="off" autocapitalize="words">
+    <h3>Background art</h3><div class="hsub" style="margin-bottom:8px">Search a card by name, such as your commander, to use its art.</div>
+    <input type="search" id="pbq" placeholder="Search card name" autocomplete="off" enterkeyhint="search"><div class="pbres" id="pbres"></div>
+    <div class="pbprev" id="pbprev"></div>
+    <div class="bar"><button class="btn primary" data-a="psave" style="flex:1">Save</button><button class="btn" data-a="pbclear">Remove art</button></div></div>`;
+  paintPrev();
+}
+function paintPrev(){const el=$('#pbprev');if(!el)return;const ps=S.psheet;
+  if(ps&&artOK(ps.bg)){el.style.backgroundImage=`url('${ps.bg}')`;el.textContent=ps.bgName;}else{el.style.backgroundImage='';el.textContent='';}}
+let pbSeq=0;
+async function pbSearch(q){
+  const box=$('#pbres'),seq=++pbSeq;if(!box)return;
+  if(q.trim().length<2){box.innerHTML='';return;}
+  try{const j=await sf('/cards/autocomplete?q='+encodeURIComponent(q));if(seq!==pbSeq)return;
+    box.innerHTML=(j.data||[]).slice(0,6).map(n=>`<button data-a="pbpick" data-n="${esc(n)}">${esc(n)}</button>`).join('')||'<div class="hsub">No matches</div>';}
+  catch(e){if(seq===pbSeq)box.innerHTML='<div class="hsub">Could not search right now</div>';}
+}
+async function pbPick(name){
+  try{
+    const c=await sf('/cards/named?exact='+encodeURIComponent(name));
+    const art=slim(c).art;
+    if(!artOK(art)){toast('That card has no art to use');return;}
+    S.psheet.bg=art;S.psheet.bgName=c.name;paintPrev();$('#pbres').innerHTML='';
+  }catch(e){toast('Could not load that card');}
 }
 
 /* ---------- events ---------- */
@@ -1024,13 +1186,16 @@ document.addEventListener('click',async ev=>{
     case 'lmenu':S.lifePend=null;lifeMenu();if(!$('#dlg').open)$('#dlg').showModal();break;
     case 'lpn':S.lifePend.n=+el.dataset.v;lifeMenu();break;
     case 'lstart':S.lifePend.start=+el.dataset.v;lifeMenu();break;
-    case 'lnew':{if(confirm('Start a new game? Current life totals will be reset.')){const pd=S.lifePend;S.life=newLife(pd.n,pd.start,S.life);S.lifeView={};S.first=-1;saveLife(true);$('#dlg').close();renderLife();}break;}
-    case 'ldie':{const n=+el.dataset.n,r=1+Math.floor(Math.random()*n);$('#diceout').textContent=el.dataset.coin?(r===1?'Heads':'Tails'):r;break;}
-    case 'lfirst':{const L=S.life,alive=L.players.map((p,i)=>i).filter(i=>!isDead(L.players[i])),pool=alive.length?alive:L.players.map((p,i)=>i);
-      const old=S.first;S.first=pool[Math.floor(Math.random()*pool.length)];$('#dlg').close();if(old>=0)redrawTile(old);redrawTile(S.first);toast(L.players[S.first].name+' goes first');
-      const f=S.first;setTimeout(()=>{if(S.first===f){S.first=-1;redrawTile(f);}},5000);break;}
+    case 'lnew':{if(confirm('Start a new game? Current life totals will be reset.')){const pd=S.lifePend;S.life=newLife(pd.n,pd.start,S.life);S.lifeView={};S.first=-1;S.spin=-1;S.cmdMode=-1;spinTok++;saveLife(true);$('#dlg').close();renderLife();}break;}
+    case 'ldie':rollVisual(el.dataset.k);break;
+    case 'lfirst':$('#dlg').close();spinFirst();break;
     case 'lawake':S.life.awake=!S.life.awake;saveLife(true);el.setAttribute('aria-pressed',S.life.awake);applyWake();break;
-    case 'lname':{const i=+el.dataset.p,p=S.life.players[i],nm=prompt('Player name',p.name);if(nm&&nm.trim()){p.name=nm.trim().slice(0,20);saveLife(true);redrawTile(i);}break;}
+    case 'lname':playerSheet(+el.dataset.p);if(!$('#dlg').open)$('#dlg').showModal();break;
+    case 'pbpick':pbPick(el.dataset.n);break;
+    case 'pbclear':S.psheet.bg='';S.psheet.bgName='';paintPrev();break;
+    case 'psave':{const ps=S.psheet,p=S.life.players[ps.i],nm=$('#pnin').value.trim();if(nm)p.name=nm.slice(0,20);p.bg=ps.bg;p.bgName=ps.bgName;saveLife(true);$('#dlg').close();if(S.cmdMode>=0||true)redrawAll();break;}
+    case 'cmdstart':S.cmdMode=+el.dataset.p;redrawAll();break;
+    case 'cmddone':S.cmdMode=-1;redrawAll();break;
     case 'lview':{const i=+el.dataset.p;S.lifeView[i]=S.lifeView[i]==='counts'?'':'counts';redrawTile(i);break;}
     case 'cinc':counterChange(+el.dataset.p,el.dataset.k,1);break;
     case 'cdec':counterChange(+el.dataset.p,el.dataset.k,-1);break;
@@ -1054,6 +1219,7 @@ document.addEventListener('click',async ev=>{
 document.addEventListener('input',ev=>{
   if(ev.target.id==='q'){S.search.q=ev.target.value;clearTimeout(runSearch.t);runSearch.t=setTimeout(()=>runSearch(),450);}
   if(ev.target.id==='dn'){clearTimeout(suggestNames.t);const v=ev.target.value;suggestNames.t=setTimeout(()=>suggestNames(v),250);}
+  if(ev.target.id==='pbq'){clearTimeout(pbSearch.t);const v=ev.target.value;pbSearch.t=setTimeout(()=>pbSearch(v),250);}
   if(ev.target.id==='cq'){S.collQ=ev.target.value;S.collLimit=90;renderCollList();}
   if(ev.target.id==='ftext'){S.filt.text=ev.target.value;S.collLimit=90;renderCollList();}
   if(ev.target.id==='ccols'){const n=+ev.target.value,g=$('.cgrid');S.collCols=n;$('#colsn').textContent=n;if(g)g.style.setProperty('--cols',n);}
