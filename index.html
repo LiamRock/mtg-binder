@@ -235,6 +235,8 @@ body.life-on .app{padding:0;max-width:none}
 .land{animation:land .35s ease-out}
 @keyframes land{0%{transform:scale(1.3)}60%{transform:scale(.94)}100%{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.tumble,.land,.coin.hop{animation:none}}
+.shfilters{border:1px solid var(--line);border-radius:14px;padding:10px 14px 14px;margin:6px 0 12px;background:var(--surface)}
+.shfilters summary{font-weight:700;cursor:pointer;padding:4px 0}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:20;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.on{opacity:1}
 .foot{margin-top:28px;font-size:12px;color:var(--muted)}
@@ -360,7 +362,8 @@ const idb={
 
 const FILT0=()=>({types:[],colors:[],cmode:'any',cmc:[],rarity:[],foil:'any',set:'',text:''});
 const S={cards:new Map(),coll:new Map(),decks:[],lastRefresh:0,tab:'search',deckId:null,dtab:'cards',target:null,targetBoard:'main',collView:'grid',collCols:3,filt:null,busy:false,collQ:'',collSort:'name',collLimit:90,
-  search:{q:'',prints:false,results:[],next:null,total:0,loading:false,err:'',empty:false,seq:0},
+  shuf:null,
+  search:{mode:'find',q:'',prints:false,results:[],next:null,total:0,loading:false,err:'',empty:false,seq:0},
   scan:{stream:null,workerP:null,busy:false,auto:false,card:null,cands:[],prints:null,printsBusy:false,msg:'',log:[]}};
 
 S.filt=FILT0();
@@ -476,25 +479,91 @@ function render(){document.body.classList.toggle('life-on',S.tab==='life');if(S.
 function refreshView(){const t=S.tab;if(t==='search')renderResults();else if(t==='coll')renderCollList();else if(t==='decks')renderDecks();else if(t==='scan')updateScanUI();else if(t==='life'){}else renderSync();}
 
 /* search */
+function resultTile(c){
+  const quickLabel=S.target?(S.targetBoard==='wish'?'Add to wishlist':'Add to deck'):'Add to collection';
+  const n=owned(c.id);
+  return `<div class="tile"><button class="open" data-a="card" data-id="${c.id}"><img src="${esc(c.img)}" alt="" loading="lazy"><div class="t"><b>${esc(c.name)}</b><span class="sub">${esc(c.set.toUpperCase())} #${esc(c.cn)} · ${money(unitPrice(c,false))}</span></div></button>${n?`<span class="own">${n}</span>`:''}<button class="add" data-a="quick" data-id="${c.id}" aria-label="${quickLabel}: ${esc(c.name)}">${IC.plus}</button></div>`;
+}
 function renderSearch(){
   setHeader({title:'Search'});
-  const s=S.search,d=S.target&&deckById(S.target);
+  const s=S.search,d=S.target&&deckById(S.target),shuf=s.mode==='shuffle';
   $('#view').innerHTML=`
     ${d?`<div class="banner"><span>Adding to <b>${esc(d.name)}</b>${S.targetBoard==='wish'?' wishlist':''}</span><button class="btn small" data-a="opendeck" data-id="${d.id}">Open deck</button><button class="btn small" data-a="cleartarget">Done</button></div>`:''}
+    <div class="bar"><div class="seg" role="group" aria-label="Search mode"><button data-a="smode" data-v="find" aria-pressed="${!shuf}">Search</button><button data-a="smode" data-v="shuffle" aria-pressed="${shuf}">Shuffle</button></div></div>
+    ${shuf?`<div id="shufui"></div><div id="results"></div>`:`
     <div class="bar"><label class="searchbox">${IC.search}<input id="q" type="search" placeholder="Search cards, e.g. t:goblin c:r cmc<=2" enterkeyhint="search" autocomplete="off" value="${esc(s.q)}"></label></div>
     <div class="bar"><button class="chip" data-a="prints" aria-pressed="${s.prints}">All printings</button><span class="sub">Scryfall search syntax works</span></div>
-    <div id="results"></div>`;
+    <div id="results"></div>`}`;
+  if(shuf)renderShuffleUI();
   renderResults();
 }
 function renderResults(){
   const el=$('#results');if(!el)return;const s=S.search;
+  if(s.mode==='shuffle'){renderShuffleResults();return;}
   if(s.err){el.innerHTML=`<p class="err">${esc(s.err)}</p>`;return;}
   if(!s.results.length){el.innerHTML=s.loading?'<p class="empty">Searching…</p>':s.empty?'<p class="empty">No cards matched that search.</p>':'<p class="empty">Search by name or use Scryfall syntax.<br>Tap + on a card to add it fast, or tap the card for details.</p>';return;}
-  const quickLabel=S.target?(S.targetBoard==='wish'?'Add to wishlist':'Add to deck'):'Add to collection';
-  el.innerHTML=`<p class="sub">${s.total} card${s.total===1?'':'s'} found</p><div class="grid">`+s.results.map(c=>{
-    const n=owned(c.id);
-    return `<div class="tile"><button class="open" data-a="card" data-id="${c.id}"><img src="${esc(c.img)}" alt="" loading="lazy"><div class="t"><b>${esc(c.name)}</b><span class="sub">${esc(c.set.toUpperCase())} #${esc(c.cn)} · ${money(unitPrice(c,false))}</span></div></button>${n?`<span class="own">${n}</span>`:''}<button class="add" data-a="quick" data-id="${c.id}" aria-label="${quickLabel}: ${esc(c.name)}">${IC.plus}</button></div>`;
-  }).join('')+'</div>'+(s.next?`<div class="bar"><button class="btn" data-a="more" ${s.loading?'disabled':''}>${s.loading?'Loading…':'Load more'}</button></div>`:'');
+  el.innerHTML=`<p class="sub">${s.total} card${s.total===1?'':'s'} found</p><div class="grid">`+s.results.map(resultTile).join('')+'</div>'+(s.next?`<div class="bar"><button class="btn" data-a="more" ${s.loading?'disabled':''}>${s.loading?'Loading…':'Load more'}</button></div>`:'');
+}
+
+/* shuffle: random cards that match your filters */
+const SHUF0=()=>({colors:[],cmode:'any',ident:false,types:[],cmc:[],rarity:[],fmt:'',cmdr:false,text:''});
+const SHUF_FMTS=['commander','standard','pioneer','modern','legacy','vintage','pauper'];
+try{const j=JSON.parse(localStorage.getItem('pb-shuf')||'null');S.shuf={f:Object.assign(SHUF0(),j||{}),cards:[],loading:false,err:'',empty:false,seq:0,tried:false};}catch(e){S.shuf={f:SHUF0(),cards:[],loading:false,err:'',empty:false,seq:0,tried:false};}
+const saveShuf=()=>{try{localStorage.setItem('pb-shuf',JSON.stringify(S.shuf.f));}catch(e){}};
+const shufCount=()=>{const f=S.shuf.f;return (f.colors.length?1:0)+(f.types.length?1:0)+(f.cmc.length?1:0)+(f.rarity.length?1:0)+(f.fmt?1:0)+(f.cmdr?1:0)+(f.text.trim()?1:0);};
+function shufQuery(){
+  const f=S.shuf.f,parts=['game:paper'];
+  if(f.colors.length){
+    const real=f.colors.filter(k=>k!=='C').map(k=>k.toLowerCase()).join(''),hasC=f.colors.includes('C');
+    if(f.ident){
+      if(f.cmode==='exact')parts.push(real?`id=${real}`:'id:c');
+      else parts.push(real?`id<=${real}`:'id:c');
+    }else if(f.cmode==='exact')parts.push(real?`c=${real}`:'c:c');
+    else{const alt=f.colors.map(k=>k==='C'?'c:c':'c:'+k.toLowerCase());parts.push(alt.length>1?`(${alt.join(' or ')})`:alt[0]);}
+  }
+  if(f.types.length)parts.push(f.types.length>1?`(${f.types.map(t=>'t:'+t.toLowerCase()).join(' or ')})`:'t:'+f.types[0].toLowerCase());
+  if(f.cmc.length){const alt=f.cmc.map(n=>n>=7?'mv>=7':'mv='+n);parts.push(alt.length>1?`(${alt.join(' or ')})`:alt[0]);}
+  if(f.rarity.length){const alt=f.rarity.map(r=>'r:'+r[0]);parts.push(alt.length>1?`(${alt.join(' or ')})`:alt[0]);}
+  if(f.fmt)parts.push('f:'+f.fmt);
+  if(f.cmdr)parts.push('is:commander');
+  f.text.trim().split(/\s+/).filter(Boolean).slice(0,6).forEach(w=>parts.push('o:"'+w.replace(/["\\]/g,'')+'"'));
+  return parts.join(' ');
+}
+function renderShuffleUI(){
+  const el=$('#shufui');if(!el)return;const f=S.shuf.f;
+  const chip=(act,v,label,on,icon,extra)=>`<button class="chip${extra||''}" data-a="${act}" data-v="${v}" aria-pressed="${on}"${extra?` aria-label="${esc(label)}"`:''}>${icon||''}${extra?'':esc(label)}</button>`;
+  const n=shufCount();
+  el.innerHTML=`<div class="bar"><button class="btn primary" data-a="shuffle" style="flex:1" ${S.shuf.loading?'disabled':''}>${S.shuf.loading?'Shuffling…':(S.shuf.cards.length?'Shuffle again':'Shuffle')}</button></div>
+    <details class="shfilters" ${S.shuf.cards.length&&!S.shuf.fopen?'':'open'}><summary>Filters${n?` (${n})`:''}</summary>
+    <h3>Color</h3><div class="chips">${'WUBRGC'.split('').map(k=>chip('sfc',k,COLOR_NAMES[k],f.colors.includes(k),`<i class="ms ms-${k.toLowerCase()} ms-cost ms-shadow"></i>`,' ico')).join('')}</div>
+    <div class="chips" style="margin-top:8px">${chip('sfm','any','Any of these',f.cmode==='any')}${chip('sfm','exact','Exactly these',f.cmode==='exact')}${chip('sfi','1','Color identity',f.ident)}</div>
+    <h3>Card type</h3><div class="chips">${TYPES.map(t=>chip('sft',t,t,f.types.includes(t),`<i class="ms ms-${TYPE_ICON[t]}"></i>`)).join('')}</div>
+    <h3>Mana value</h3><div class="chips">${[0,1,2,3,4,5,6,7].map(k=>chip('sfv',k,k===7?'7+':String(k),f.cmc.includes(k))).join('')}</div>
+    <h3>Rarity</h3><div class="chips">${['common','uncommon','rare','mythic'].map(r=>chip('sfr',r,r[0].toUpperCase()+r.slice(1),f.rarity.includes(r))).join('')}</div>
+    <h3>Legal in</h3><div class="chips">${SHUF_FMTS.map(x=>chip('sff',x,x[0].toUpperCase()+x.slice(1),f.fmt===x)).join('')}</div>
+    <h3>Other</h3><div class="chips">${chip('sfcmdr','1','Can be a commander',f.cmdr)}</div>
+    <h3>Rules text contains</h3><input type="text" id="sftext" placeholder="e.g. draw, sacrifice, flying" value="${esc(f.text)}" autocomplete="off">
+    <div class="bar" style="margin-top:12px"><button class="btn small" data-a="sfclear">Clear filters</button></div></details>`;
+}
+function renderShuffleResults(){
+  const el=$('#results'),h=S.shuf;if(!el)return;
+  if(h.err){el.innerHTML=`<p class="err">${esc(h.err)}</p>`;return;}
+  if(!h.cards.length){el.innerHTML=h.loading?'<p class="empty">Shuffling…</p>':h.empty?'<p class="empty">No cards match those filters. Loosen one and shuffle again.</p>':'<p class="empty">Set any filters you like, then tap Shuffle for random cards to get ideas.<br>With no filters you get anything.</p>';return;}
+  el.innerHTML=`<div class="grid">${h.cards.map(resultTile).join('')}</div>`;
+}
+async function shuffleCards(){
+  const h=S.shuf;if(h.loading)return;
+  const seq=++h.seq,q=shufQuery(),got=[],seen=new Set();
+  h.loading=true;h.err='';h.empty=false;h.cards=[];renderShuffleUI();renderShuffleResults();
+  try{
+    for(let tries=0;got.length<6&&tries<12;tries++){
+      let c;try{c=await sf('/cards/random?q='+encodeURIComponent(q));}catch(e){if(e.status===404){if(!got.length)h.empty=true;break;}throw e;}
+      if(seq!==h.seq)return;
+      const key=c.oracle_id||c.name;if(seen.has(key))continue;seen.add(key);
+      got.push(remember([c],false)[0]);h.cards=got.slice();renderShuffleResults();
+    }
+  }catch(e){if(seq===h.seq)h.err=navigator.onLine?e.message:'No connection. Shuffle needs the internet; your collection and decks still work offline.';}
+  finally{if(seq===h.seq){h.loading=false;if(h.cards.length)h.fopen=false;renderShuffleUI();renderShuffleResults();}}
 }
 async function runSearch(more){
   const s=S.search,q=s.q.trim();if(!more&&!q){s.results=[];s.empty=false;s.err='';renderResults();return;}
@@ -1139,6 +1208,17 @@ document.addEventListener('click',async ev=>{
     case 'close':$('#dlg').close();break;
     case 'prints':S.search.prints=!S.search.prints;el.setAttribute('aria-pressed',S.search.prints);runSearch();break;
     case 'more':runSearch(true);break;
+    case 'smode':S.search.mode=el.dataset.v;renderSearch();break;
+    case 'shuffle':shuffleCards();break;
+    case 'sfc':toggleIn(S.shuf.f.colors,el.dataset.v);saveShuf();S.shuf.fopen=true;renderShuffleUI();break;
+    case 'sfm':S.shuf.f.cmode=el.dataset.v;saveShuf();S.shuf.fopen=true;renderShuffleUI();break;
+    case 'sfi':S.shuf.f.ident=!S.shuf.f.ident;saveShuf();S.shuf.fopen=true;renderShuffleUI();break;
+    case 'sft':toggleIn(S.shuf.f.types,el.dataset.v);saveShuf();S.shuf.fopen=true;renderShuffleUI();break;
+    case 'sfv':toggleIn(S.shuf.f.cmc,+el.dataset.v);saveShuf();S.shuf.fopen=true;renderShuffleUI();break;
+    case 'sfr':toggleIn(S.shuf.f.rarity,el.dataset.v);saveShuf();S.shuf.fopen=true;renderShuffleUI();break;
+    case 'sff':S.shuf.f.fmt=S.shuf.f.fmt===el.dataset.v?'':el.dataset.v;saveShuf();S.shuf.fopen=true;renderShuffleUI();break;
+    case 'sfcmdr':S.shuf.f.cmdr=!S.shuf.f.cmdr;saveShuf();S.shuf.fopen=true;renderShuffleUI();break;
+    case 'sfclear':S.shuf.f=SHUF0();saveShuf();S.shuf.fopen=true;renderShuffleUI();break;
     case 'quick':{const d=S.target&&deckById(S.target);persistCard(id);
       if(d){deckAdd(d,id,S.targetBoard||'main',1);toast('Added to '+d.name+(S.targetBoard==='wish'?' wishlist':''));}else{collAdd(id,false,1);toast('Added to collection');}renderResults();break;}
     case 'inc':collAdd(id,false,1);renderCollList();break;
@@ -1220,6 +1300,7 @@ document.addEventListener('input',ev=>{
   if(ev.target.id==='q'){S.search.q=ev.target.value;clearTimeout(runSearch.t);runSearch.t=setTimeout(()=>runSearch(),450);}
   if(ev.target.id==='dn'){clearTimeout(suggestNames.t);const v=ev.target.value;suggestNames.t=setTimeout(()=>suggestNames(v),250);}
   if(ev.target.id==='pbq'){clearTimeout(pbSearch.t);const v=ev.target.value;pbSearch.t=setTimeout(()=>pbSearch(v),250);}
+  if(ev.target.id==='sftext'){S.shuf.f.text=ev.target.value;saveShuf();}
   if(ev.target.id==='cq'){S.collQ=ev.target.value;S.collLimit=90;renderCollList();}
   if(ev.target.id==='ftext'){S.filt.text=ev.target.value;S.collLimit=90;renderCollList();}
   if(ev.target.id==='ccols'){const n=+ev.target.value,g=$('.cgrid');S.collCols=n;$('#colsn').textContent=n;if(g)g.style.setProperty('--cols',n);}
