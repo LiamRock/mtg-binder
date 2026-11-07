@@ -242,6 +242,20 @@ body.life-on .app{padding:0;max-width:none}
 @media (prefers-reduced-motion:reduce){.tumble,.land,.coin.hop{animation:none}}
 .shfilters{border:1px solid var(--line);border-radius:14px;padding:10px 14px 14px;margin:6px 0 12px;background:var(--surface)}
 .shfilters summary{font-weight:700;cursor:pointer;padding:4px 0}
+.steps{margin:8px 0 4px;padding-left:20px;font-size:13.5px;line-height:1.5}.steps li{margin:6px 0}
+.steps code{background:var(--raise);border-radius:5px;padding:1px 5px;font-size:12.5px;word-break:break-all}
+@media (hover:hover){.chip:hover,.btn:hover{border-color:var(--accent)}.row:hover,.deckrow:hover{background:var(--raise)}.tile .open:hover img,.ctile .open:hover img{filter:brightness(1.08)}nav button:hover{color:var(--ink)}}
+/* computer layout: side rail instead of the bottom bar, wider grids, centered dialogs */
+@media (min-width:900px){
+  body{padding-left:96px}
+  nav{top:0;right:auto;bottom:0;width:96px;flex-direction:column;justify-content:flex-start;gap:6px;padding:14px 0 0;border-top:0;border-right:1px solid var(--line)}
+  nav button{flex:none;padding:10px 0}
+  .app{max-width:1180px;padding-bottom:40px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:16px}
+  dialog{border-radius:20px;margin:auto;max-width:640px}
+  .htitle h1{font-size:21px}
+  #toast{bottom:28px}
+}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:20;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.on{opacity:1}
 .foot{margin-top:28px;font-size:12px;color:var(--muted)}
@@ -313,6 +327,37 @@ function parseDecklist(text){
   }
   return out;
 }
+/* two-device sync: per-record last-writer-wins with tombstones */
+function normSnap(j){j=j||{};const t=j.tomb||{};return {coll:Array.isArray(j.coll)?j.coll:[],decks:Array.isArray(j.decks)?j.decks:[],tomb:{coll:t.coll||{},decks:t.decks||{}}};}
+function snapKey(m){
+  const ks=o=>Object.keys(o).sort().map(k=>[k,o[k]]);
+  return JSON.stringify([m.coll.slice().sort((a,b)=>a.id<b.id?-1:1).map(e=>[e.id,e.qty,e.foil,e.t||0]),
+    m.decks.slice().sort((a,b)=>a.id<b.id?-1:1).map(d=>[d.id,d.updated||0,JSON.stringify(d)]),ks(m.tomb.coll),ks(m.tomb.decks)]);
+}
+function mergeSync(L,R){
+  L=normSnap(L);R=normSnap(R);
+  const tomb={coll:{},decks:{}};
+  for(const k of ['coll','decks']){
+    for(const id of new Set([...Object.keys(L.tomb[k]),...Object.keys(R.tomb[k])]))tomb[k][id]=Math.max(L.tomb[k][id]||0,R.tomb[k][id]||0);
+  }
+  const lc=new Map(L.coll.map(e=>[e.id,e])),rc=new Map(R.coll.map(e=>[e.id,e])),coll=[];
+  for(const id of new Set([...lc.keys(),...rc.keys()])){
+    const a=lc.get(id),b=rc.get(id);let w;
+    if(a&&b){const ta=a.t||0,tb=b.t||0;w=ta>tb?a:tb>ta?b:{id,qty:Math.max(a.qty,b.qty),foil:Math.max(a.foil,b.foil),t:ta};}
+    else w=a||b;
+    if((tomb.coll[id]||0)>(w.t||0))continue;
+    coll.push(w);
+  }
+  const ld=new Map(L.decks.map(d=>[d.id,d])),rd=new Map(R.decks.map(d=>[d.id,d])),decks=[];
+  for(const id of new Set([...ld.keys(),...rd.keys()])){
+    const a=ld.get(id),b=rd.get(id);let w;
+    if(a&&b){const ta=a.updated||0,tb=b.updated||0;w=ta>tb?a:tb>ta?b:(JSON.stringify(a)>=JSON.stringify(b)?a:b);}
+    else w=a||b;
+    if((tomb.decks[id]||0)>(w.updated||0))continue;
+    decks.push(w);
+  }
+  return {coll,decks,tomb};
+}
 /*PURE-END*/
 
 const $=(s,r=document)=>r.querySelector(s);
@@ -366,7 +411,7 @@ const idb={
 };
 
 const FILT0=()=>({types:[],colors:[],cmode:'any',cmc:[],rarity:[],foil:'any',deck:'any',set:'',text:''});
-const S={cards:new Map(),coll:new Map(),decks:[],lastRefresh:0,tab:'search',deckId:null,dtab:'cards',target:null,targetBoard:'main',collView:'grid',collCols:3,filt:null,busy:false,collQ:'',collSort:'name',collLimit:90,
+const S={tomb:{coll:{},decks:{}},cards:new Map(),coll:new Map(),decks:[],lastRefresh:0,tab:'search',deckId:null,dtab:'cards',target:null,targetBoard:'main',collView:'grid',collCols:3,filt:null,busy:false,collQ:'',collSort:'name',collLimit:90,
   shuf:null,
   search:{mode:'find',q:'',prints:false,results:[],next:null,total:0,loading:false,err:'',empty:false,seq:0},
   scan:{stream:null,workerP:null,busy:false,auto:false,card:null,cands:[],prints:null,printsBusy:false,msg:'',log:[]}};
@@ -375,6 +420,7 @@ S.filt=FILT0();
 function loadPrefs(){try{const p=JSON.parse(localStorage.getItem('pb-prefs')||'{}');if(p.cols>=1&&p.cols<=6)S.collCols=p.cols;if(p.view==='grid'||p.view==='list')S.collView=p.view;if(p.sort)S.collSort=p.sort;}catch(e){}}
 function savePrefs(){try{localStorage.setItem('pb-prefs',JSON.stringify({cols:S.collCols,view:S.collView,sort:S.collSort}));}catch(e){}}
 loadPrefs();
+try{if(innerWidth>=900&&!(JSON.parse(localStorage.getItem('pb-prefs')||'{}').cols))S.collCols=6;}catch(e){}
 /* ---------- cards & prices ---------- */
 const CARD_V=3;
 function faceImg(c,k){const u=c.image_uris||(c.card_faces&&c.card_faces[0]&&c.card_faces[0].image_uris)||{};return u[k]||'';}
@@ -444,9 +490,12 @@ function persistCard(id){const c=S.cards.get(id);if(c)idb.put('cards',c);}
 function collAdd(id,foil,delta){
   const e=S.coll.get(id)||{id,qty:0,foil:0};
   if(foil)e.foil=Math.max(0,e.foil+delta);else e.qty=Math.max(0,e.qty+delta);
-  if(e.qty+e.foil===0){S.coll.delete(id);idb.del('collection',id);}else{S.coll.set(id,e);idb.put('collection',e);persistCard(id);}
+  e.t=Date.now();
+  if(e.qty+e.foil===0){S.coll.delete(id);idb.del('collection',id);tombstone('coll',id);}else{S.coll.set(id,e);idb.put('collection',e);persistCard(id);delete S.tomb.coll[id];}
+  syncSoon();
 }
-const saveDeck=d=>{d.updated=Date.now();return idb.put('decks',d);};
+function tombstone(kind,id){S.tomb[kind][id]=Date.now();idb.put('meta',S.tomb,'tomb');}
+const saveDeck=d=>{d.updated=Date.now();syncSoon();return idb.put('decks',d);};
 function deckAdd(d,id,board,delta){
   let e=d.cards.find(x=>x.id===id&&x.board===board);
   if(!e){if(delta<=0)return;e={id,qty:0,board};d.cards.push(e);}
@@ -845,14 +894,15 @@ function renderSync(){
   $('#view').innerHTML=`
     <h2>Card data</h2>
     <p>Search always uses Scryfall's current database. Prices for cards you own or use in decks refresh automatically about once a day when you open the app.</p>
-    <p class="sub">${statusIdle()} · ${S.coll.size} unique cards, ${items} total, ${S.decks.length} decks stored on this phone.</p>
+    <p class="sub">${statusIdle()} · ${S.coll.size} unique cards, ${items} total, ${S.decks.length} decks stored on this device.</p>
     <div class="bar"><button class="btn primary" data-a="refresh" ${S.busy?'disabled':''}>Update prices now</button></div>
+    ${syncSection()}
     <h2>Import from ManaBox</h2>
     <p class="sub">In ManaBox, export your collection as CSV, then pick that file here. Decks: use Import list on a deck's Info tab.</p>
     <div class="bar"><select id="impmode" aria-label="Import mode"><option value="add">Add to what I have</option><option value="replace">Replace my collection</option></select></div>
     <div class="bar"><input type="file" id="csvfile" accept=".csv,text/csv,text/plain"></div>
     <h2>Backup</h2>
-    <p class="sub">Everything lives only on this phone. Export a backup now and then.</p>
+    <p class="sub">Everything is stored on this device (and in your Google Drive if you turn on sync). Export a backup now and then.</p>
     <div class="bar"><button class="btn" data-a="exportcsv">Export collection CSV</button><button class="btn" data-a="exportjson">Back up everything</button></div>
     <div class="bar"><label class="sub" for="jsonfile">Restore a backup</label><input type="file" id="jsonfile" accept=".json,application/json"></div>
     <p class="foot">Card data and images from Scryfall. Mana and card type icons from the Mana font by Andrew Gioia (MIT). Camera text recognition by Tesseract.js (Apache 2.0). Pocket Binder is unofficial fan content and is not approved or endorsed by Wizards of the Coast. Magic: The Gathering is a trademark of Wizards of the Coast LLC.</p>`;
@@ -864,11 +914,11 @@ async function importCSV(file){
     const {map,idents}=planImport(rows);
     const {found,missing}=await fetchCollection(idents,(a,b)=>setStatus('Importing '+a+' of '+b+'…'));
     remember(found,true);
-    if(replace){S.coll.clear();await idb.clear('collection');}
+    if(replace){const now=Date.now();for(const id of S.coll.keys())S.tomb.coll[id]=now;await idb.put('meta',S.tomb,'tomb');S.coll.clear();await idb.clear('collection');}
     let added=0;
     for(const c of found){const k=cardKeys(c).find(k=>map.has(k)&&!map.get(k).used);if(!k)continue;const x=map.get(k);x.used=true;
-      const e=S.coll.get(c.id)||{id:c.id,qty:0,foil:0};e.qty+=x.qty;e.foil+=x.foil;S.coll.set(c.id,e);added+=x.qty+x.foil;}
-    await idb.putMany('collection',[...S.coll.values()]);
+      const e=S.coll.get(c.id)||{id:c.id,qty:0,foil:0};e.qty+=x.qty;e.foil+=x.foil;e.t=Date.now();delete S.tomb.coll[c.id];S.coll.set(c.id,e);added+=x.qty+x.foil;}
+    await idb.putMany('collection',[...S.coll.values()]);await idb.put('meta',S.tomb,'tomb');syncSoon();
     toast(`Imported ${added} cards`+(missing.length?` · ${missing.length} not found`:''));
   }catch(e){toast('Import failed: '+(navigator.onLine?e.message:'no connection'));}
   finally{S.busy=false;setStatus();renderSync();}
@@ -884,10 +934,122 @@ function exportJSON(){download('pocket-binder-backup.json',JSON.stringify({v:1,c
 async function restoreJSON(file){
   try{
     const j=JSON.parse(await file.text());if(!j||j.v!==1)throw new Error('Not a Pocket Binder backup');
+    const now=Date.now(),tomb={coll:Object.assign({},S.tomb.coll),decks:Object.assign({},S.tomb.decks)};
+    const keepC=new Set((j.coll||[]).map(e=>e.id)),keepD=new Set((j.decks||[]).map(d=>d.id));
+    for(const id of S.coll.keys())if(!keepC.has(id))tomb.coll[id]=now;
+    for(const d of S.decks)if(!keepD.has(d.id))tomb.decks[d.id]=now;
+    (j.coll||[]).forEach(e=>{e.t=now;delete tomb.coll[e.id];});(j.decks||[]).forEach(d=>{d.updated=now;delete tomb.decks[d.id];});
     await Promise.all(['cards','collection','decks'].map(s=>idb.clear(s)));
-    await idb.putMany('cards',j.cards||[]);await idb.putMany('collection',j.coll||[]);await idb.putMany('decks',j.decks||[]);
-    await load();toast('Backup restored');renderSync();
+    await idb.putMany('cards',j.cards||[]);await idb.putMany('collection',j.coll||[]);await idb.putMany('decks',j.decks||[]);await idb.put('meta',tomb,'tomb');
+    await load();syncSoon();toast('Backup restored');renderSync();
   }catch(e){toast('Could not restore: '+e.message);}
+}
+
+
+/* ---------- sync across devices (your own Google Drive, hidden app folder) ---------- */
+const SYNC={token:null,exp:0,tc:null,tcId:'',pending:null,busy:false,t:null,dirty:false,lastTry:0};
+const SYNC_FILE='pocket-binder.json',SYNC_SCOPE='https://www.googleapis.com/auth/drive.appdata';
+const DRIVE='https://www.googleapis.com/drive/v3',DRIVE_UP='https://www.googleapis.com/upload/drive/v3';
+const syncCfg=()=>{try{return JSON.parse(localStorage.getItem('pb-sync')||'{}')||{};}catch(e){return {};}};
+const setSyncCfg=o=>{try{localStorage.setItem('pb-sync',JSON.stringify(Object.assign(syncCfg(),o)));}catch(e){}};
+const clientId=()=>String(syncCfg().cid||'').trim();
+const tokenOK=()=>!!SYNC.token&&Date.now()<SYNC.exp;
+const localSnap=()=>({coll:[...S.coll.values()],decks:S.decks,tomb:S.tomb});
+function loadGIS(){return new Promise((res,rej)=>{
+  if(window.google&&google.accounts&&google.accounts.oauth2)return res();
+  const sc=document.createElement('script');sc.src='https://accounts.google.com/gsi/client';sc.async=true;
+  sc.onload=()=>res();sc.onerror=()=>rej(new Error('Could not load Google sign-in. Check your connection.'));document.head.appendChild(sc);});}
+async function getToken(){
+  if(tokenOK())return SYNC.token;
+  await loadGIS();
+  return new Promise((res,rej)=>{
+    if(!SYNC.tc||SYNC.tcId!==clientId()){
+      SYNC.tcId=clientId();
+      SYNC.tc=google.accounts.oauth2.initTokenClient({client_id:clientId(),scope:SYNC_SCOPE,
+        callback:r=>{const p=SYNC.pending;SYNC.pending=null;if(!p)return;
+          if(!r||r.error||!r.access_token)return p.rej(new Error((r&&(r.error_description||r.error))||'Sign-in failed'));
+          SYNC.token=r.access_token;SYNC.exp=Date.now()+((+r.expires_in||3600)-90)*1000;setSyncCfg({signed:true});p.res(SYNC.token);},
+        error_callback:e=>{const p=SYNC.pending;SYNC.pending=null;if(p)p.rej(Object.assign(new Error(e&&e.type==='popup_closed'?'Sign-in was cancelled':'Tap Sync now to sign in again'),{needTap:true}));}});
+    }
+    SYNC.pending={res,rej};
+    try{SYNC.tc.requestAccessToken({prompt:''});}catch(e){SYNC.pending=null;rej(e);}
+  });
+}
+async function gfetch(url,opt={}){
+  const r=await fetch(url,{...opt,headers:{...(opt.headers||{}),Authorization:'Bearer '+SYNC.token}});
+  if(r.status===401){SYNC.token=null;throw Object.assign(new Error('Google sign-in expired. Tap Sync now.'),{needTap:true});}
+  if(!r.ok){let m='';try{m=(await r.json()).error.message;}catch(e){}throw new Error('Google Drive: '+(m||r.status));}
+  return r;
+}
+async function findSyncFile(){
+  const r=await gfetch(`${DRIVE}/files?spaces=appDataFolder&pageSize=1&fields=files(id)&q=${encodeURIComponent(`name='${SYNC_FILE}'`)}`);
+  const j=await r.json();return j.files&&j.files[0]?j.files[0].id:null;
+}
+async function uploadSnap(id,m){
+  const data=JSON.stringify({app:'pocket-binder',v:2,savedAt:Date.now(),coll:m.coll,decks:m.decks,tomb:m.tomb});
+  if(id)return gfetch(`${DRIVE_UP}/files/${id}?uploadType=media`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:data});
+  const b='pb'+uid();
+  const body=`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({name:SYNC_FILE,parents:['appDataFolder']})}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${data}\r\n--${b}--`;
+  return gfetch(`${DRIVE_UP}/files?uploadType=multipart`,{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body});
+}
+async function applySnap(m){
+  await idb.clear('collection');await idb.clear('decks');
+  await idb.putMany('collection',m.coll);await idb.putMany('decks',m.decks);await idb.put('meta',m.tomb,'tomb');
+  S.coll=new Map(m.coll.map(e=>[e.id,e]));S.decks=m.decks;S.tomb=m.tomb;
+  if(S.deckId&&!deckById(S.deckId))S.deckId=null;
+  if(S.target&&!deckById(S.target))S.target=null;
+  const miss=referencedIds().filter(id=>!S.cards.has(id));
+  if(miss.length){try{const {found}=await fetchCollection(miss.map(id=>({id})));remember(found,true);}catch(e){}}
+}
+async function syncNow(manual){
+  if(SYNC.busy)return;
+  if(!clientId()){if(manual)toast('Add your Google client ID first');return;}
+  if(!navigator.onLine){if(manual)toast('You are offline. Sync will happen when you are back online.');SYNC.dirty=true;return;}
+  SYNC.busy=true;SYNC.lastTry=Date.now();clearTimeout(SYNC.t);if(S.tab==='sync')renderSync();
+  try{
+    await getToken();
+    const id=await findSyncFile();let remote=null;
+    if(id){const j=await (await gfetch(`${DRIVE}/files/${id}?alt=media`)).json();if(j&&j.app==='pocket-binder')remote=normSnap(j);}
+    const local=normSnap(localSnap()),merged=remote?mergeSync(local,remote):local;
+    const changedLocal=snapKey(merged)!==snapKey(local);
+    if(changedLocal)await applySnap(merged);
+    if(!remote||snapKey(merged)!==snapKey(remote))await uploadSnap(id,merged);
+    SYNC.dirty=false;setSyncCfg({last:Date.now(),err:''});
+    if(manual)toast(changedLocal?'Synced · got changes from your other device':'Synced');
+    if(changedLocal){if(S.tab==='sync')renderSync();else refreshView();}
+  }catch(e){
+    setSyncCfg({err:e.message||'Sync failed'});SYNC.dirty=true;
+    if(manual||!e.needTap)toast(e.message||'Sync failed');
+  }finally{SYNC.busy=false;if(S.tab==='sync')renderSync();}
+}
+function syncSoon(){
+  if(!syncCfg().signed||!clientId())return;
+  clearTimeout(SYNC.t);SYNC.dirty=true;
+  SYNC.t=setTimeout(()=>{if(tokenOK()&&navigator.onLine)syncNow(false);},4000);
+}
+function signOutSync(){
+  try{if(SYNC.token&&window.google&&google.accounts&&google.accounts.oauth2)google.accounts.oauth2.revoke(SYNC.token,()=>{});}catch(e){}
+  SYNC.token=null;SYNC.exp=0;SYNC.tc=null;setSyncCfg({signed:false,last:0,err:''});
+}
+function syncAgo(t){const m=Math.round((Date.now()-t)/6e4);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':Math.round(m/1440)+' d ago';}
+function syncSection(){
+  const c=syncCfg(),cid=clientId();
+  if(!cid)return `<h2>Sync across devices</h2>
+    <p>Keep your collection and decks the same on your phone and computer. Your data is saved in a hidden app folder in <b>your own Google Drive</b>; nobody else can see it.</p>
+    <details class="shfilters"><summary>One-time setup (about 10 minutes)</summary><ol class="steps">
+      <li>Open <b>console.cloud.google.com</b>, create a project, and turn on the <b>Google Drive API</b>.</li>
+      <li>Under <b>Google Auth Platform</b> (OAuth consent screen): choose External, fill in an app name and your email, add your Google address as a <b>test user</b>, and add the scope <code>drive.appdata</code>.</li>
+      <li>Under <b>Credentials</b> create an <b>OAuth client ID</b> of type <b>Web application</b>. Add <code>${esc(location.origin)}</code> as an authorized JavaScript origin.</li>
+      <li>Copy the client ID and paste it below. Do this on each device.</li></ol></details>
+    <div class="bar"><input type="text" id="gcid" placeholder="Paste your Google client ID" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1"><button class="btn primary" data-a="gsaveid">Save</button></div>`;
+  if(!c.signed)return `<h2>Sync across devices</h2>
+    <p class="sub">Not signed in. Sign in with the same Google account on each device.</p>
+    <div class="bar"><button class="btn primary" data-a="gsync" ${SYNC.busy?'disabled':''}>${SYNC.busy?'Signing in…':'Sign in with Google'}</button><button class="btn small" data-a="gchangeid">Change client ID</button></div>
+    ${c.err?`<p class="err">${esc(c.err)}</p>`:''}`;
+  return `<h2>Sync across devices</h2>
+    <p class="sub">${SYNC.busy?'Syncing…':c.last?'Last synced '+syncAgo(c.last)+'.':'Not synced yet.'} Changes upload a few seconds after you make them, and this device picks up the other device's changes each time you sync.</p>
+    ${c.err?`<p class="err">${esc(c.err)}</p>`:''}
+    <div class="bar"><button class="btn primary" data-a="gsync" ${SYNC.busy?'disabled':''}>${SYNC.busy?'Syncing…':'Sync now'}</button><button class="btn" data-a="gsignout">Sign out</button></div>`;
 }
 
 /* card sheet */
@@ -1098,7 +1260,7 @@ function updateBadges(){
 }
 function redrawTile(i){const t=$(`.ptile[data-p="${i}"]`);if(!t)return;t.className=tileClass(i);t.setAttribute('style',tileStyle(i));t.innerHTML=tileInner(i);updateBadges();}
 function redrawAll(){S.life.players.forEach((p,i)=>redrawTile(i));}
-function layoutLife(){const l=$('#life');if(!l)return;const h=$('#hdr').getBoundingClientRect(),n=$('#nav').getBoundingClientRect();l.style.top=h.bottom+'px';l.style.bottom=Math.max(0,innerHeight-n.top)+'px';}
+function layoutLife(){const l=$('#life');if(!l)return;const h=$('#hdr').getBoundingClientRect(),n=$('#nav').getBoundingClientRect();const rail=n.top<=0;l.style.top=h.bottom+'px';l.style.left=rail?n.right+'px':'0';l.style.bottom=rail?'0':Math.max(0,innerHeight-n.top)+'px';}
 addEventListener('resize',layoutLife);
 function renderLife(){
   setHeader({title:'Life'});
@@ -1296,7 +1458,7 @@ document.addEventListener('click',async ev=>{
     case 'ddec':deckAdd(deckById(S.deckId),id,el.dataset.board,-1);renderDeck();break;
     case 'copydeck':{const t=deckText(deckById(S.deckId));try{await navigator.clipboard.writeText(t);toast('Deck list copied');}catch{download('deck.txt',t,'text/plain');}break;}
     case 'renamedeck':{const d=deckById(S.deckId);const n=prompt('Deck name',d.name);if(n&&n.trim()){d.name=n.trim().slice(0,60);saveDeck(d);renderDeck();}break;}
-    case 'deletedeck':{const d=deckById(S.deckId);if(confirm('Delete "'+d.name+'"? Your collection is not affected.')){S.decks=S.decks.filter(x=>x!==d);idb.del('decks',d.id);S.target=S.target===d.id?null:S.target;navBack();}break;}
+    case 'deletedeck':{const d=deckById(S.deckId);if(confirm('Delete "'+d.name+'"? Your collection is not affected.')){S.decks=S.decks.filter(x=>x!==d);idb.del('decks',d.id);tombstone('decks',d.id);syncSoon();S.target=S.target===d.id?null:S.target;navBack();}break;}
     case 'deck2coll':{const d=deckById(S.deckId),plan=deckToCollection(d,el.dataset.mode),n=plan.reduce((a,x)=>a+x.qty,0);
       if(!n){toast(el.dataset.mode==='all'?'This deck is empty':'You already own every card in this deck');break;}
       if(confirm('Add '+n+' card'+(n===1?'':'s')+' from "'+d.name+'" to your collection?')){plan.forEach(x=>collAdd(x.id,false,x.qty));toast('Added '+n+' card'+(n===1?'':'s')+' to your collection');renderDeck();}
@@ -1328,6 +1490,10 @@ document.addEventListener('click',async ev=>{
     case 'cinc':counterChange(+el.dataset.p,el.dataset.k,1);break;
     case 'cdec':counterChange(+el.dataset.p,el.dataset.k,-1);break;
     case 'godata':setTab('sync');break;
+    case 'gsaveid':{const v=($('#gcid').value||'').trim();if(!/\.apps\.googleusercontent\.com$/.test(v)){toast('That does not look like a Google client ID (it ends in .apps.googleusercontent.com)');break;}setSyncCfg({cid:v,err:''});renderSync();break;}
+    case 'gchangeid':setSyncCfg({cid:'',signed:false,err:''});SYNC.tc=null;renderSync();break;
+    case 'gsync':syncNow(true);break;
+    case 'gsignout':if(confirm('Sign out of sync on this device? Your data stays here and in Drive.')){signOutSync();renderSync();}break;
     case 'scanstart':startCamera();break;
     case 'scanstop':stopCamera();updateScanUI();break;
     case 'scanshot':scanOnce(false);break;
@@ -1394,6 +1560,7 @@ async function doImportDeck(){
 async function load(){
   const [cards,coll,decks,lr]=await Promise.all([idb.all('cards'),idb.all('collection'),idb.all('decks'),idb.get('meta','lastRefresh')]);
   S.cards=new Map(cards.map(c=>[c.id,c]));S.coll=new Map(coll.map(e=>[e.id,e]));S.decks=decks;S.lastRefresh=lr||0;
+  const tb=await idb.get('meta','tomb');S.tomb={coll:(tb&&tb.coll)||{},decks:(tb&&tb.decks)||{}};
 }
 (async function boot(){
   buildNav();
@@ -1408,7 +1575,10 @@ async function load(){
   const stale=referencedIds().some(id=>{const c=S.cards.get(id);return !c||c.v!==CARD_V;});
   if(navigator.onLine&&(stale||Date.now()-S.lastRefresh>864e5))refreshAll(true);
   document.addEventListener('visibilitychange',()=>{if(document.hidden){stopCamera();releaseWake();}else if(S.tab==='life')applyWake();if(S.tab==='scan')updateScanUI();});
-  addEventListener('online',()=>{if(Date.now()-S.lastRefresh>864e5)refreshAll(true);});
+  addEventListener('online',()=>{if(Date.now()-S.lastRefresh>864e5)refreshAll(true);if(syncCfg().signed&&SYNC.dirty&&tokenOK())syncNow(false);});
+  // Sync: pull the other device's changes when you come back to the app, and re-sign-in silently on your first tap (browsers only allow that popup from a tap).
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&syncCfg().signed&&clientId()&&tokenOK()&&Date.now()-SYNC.lastTry>60000)syncNow(false);});
+  document.addEventListener('click',()=>{if(syncCfg().signed&&clientId()&&!tokenOK()&&!SYNC.busy&&Date.now()-SYNC.lastTry>10*60000)syncNow(false);},true);
 })();
 </script>
 </body>
