@@ -256,6 +256,13 @@ body.life-on .app{padding:0;max-width:none}
   .htitle h1{font-size:21px}
   #toast{bottom:28px}
 }
+nav button{min-width:0}
+@media (max-width:420px){nav button{font-size:11px}nav .pill{width:46px}}
+.qb2{font-variant-numeric:tabular-nums;font-weight:700;color:var(--muted);flex:none}
+.rules{background:var(--raise);border-radius:10px;padding:10px;font-size:11.5px;line-height:1.4;overflow:auto;max-height:260px;user-select:all}
+.code{font:700 17px/1 ui-monospace,Menlo,monospace;letter-spacing:.12em}
+.kv{align-items:center}
+textarea{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:10px;font:13px/1.4 ui-monospace,Menlo,monospace}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;z-index:20;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.on{opacity:1}
 .foot{margin-top:28px;font-size:12px;color:var(--muted)}
@@ -380,11 +387,12 @@ const IC={
   crown:svg('<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5z"/><path d="M5 21h14"/>'),
   bandaid:svg('<g transform="rotate(-45 12 12)"><rect x="1.5" y="7.5" width="21" height="9" rx="4.5"/><rect x="8.5" y="7.5" width="7" height="9"/></g><path d="M11 11h.01M13 11h.01M11 13h.01M13 13h.01"/>'),
   sword:svg('<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/>'),
+  users:svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17.5" cy="9" r="2.8"/><path d="M17 14.2c2.7.2 4.5 2.2 4.5 5"/>'),
   menu:svg('<path d="M4 7h16M4 12h16M4 17h16"/>'),
   gear:svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>'),
   scan:svg('<path d="M4 8a2 2 0 012-2h2l1.5-2h5L16 6h2a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><circle cx="12" cy="12.5" r="3.5"/>')
 };
-const NAV=[['search','Search',IC.search],['coll','Collection',IC.coll],['decks','Decks',IC.decks],['scan','Scan',IC.scan],['life','Life',IC.heart]];
+const NAV=[['search','Search',IC.search],['coll','Collection',IC.coll],['decks','Decks',IC.decks],['scan','Scan',IC.scan],['friends','Friends',IC.users],['life','Life',IC.heart]];
 function sym(code){const c=code.toLowerCase().replace(/\//g,'');const a={t:'tap',q:'untap'};const k=a[c]||c;
   return /^[a-z0-9]+$/.test(k)?`<i class="ms ms-${k} ms-cost ms-shadow" title="{${esc(code)}}"></i>`:`{${esc(code)}}`;}
 const manaIcons=s=>String(s||'').replace(/\{([^}]+)\}/g,(m,c)=>sym(c));
@@ -411,7 +419,7 @@ const idb={
 };
 
 const FILT0=()=>({types:[],colors:[],cmode:'any',cmc:[],rarity:[],foil:'any',deck:'any',set:'',text:''});
-const S={tomb:{coll:{},decks:{}},cards:new Map(),coll:new Map(),decks:[],lastRefresh:0,tab:'search',deckId:null,dtab:'cards',target:null,targetBoard:'main',collView:'grid',collCols:3,filt:null,busy:false,collQ:'',collSort:'name',collLimit:90,
+const S={fr:null,sdeck:null,share:{coll:false},tomb:{coll:{},decks:{}},cards:new Map(),coll:new Map(),decks:[],lastRefresh:0,tab:'search',deckId:null,dtab:'cards',target:null,targetBoard:'main',collView:'grid',collCols:3,filt:null,busy:false,collQ:'',collSort:'name',collLimit:90,
   shuf:null,
   search:{mode:'find',q:'',prints:false,results:[],next:null,total:0,loading:false,err:'',empty:false,seq:0},
   scan:{stream:null,workerP:null,busy:false,auto:false,card:null,cands:[],prints:null,printsBusy:false,msg:'',log:[]}};
@@ -519,18 +527,18 @@ function setHeader(o){
 function buildNav(){$('#nav').innerHTML=NAV.map(([k,l,i])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}"><span class="pill">${i}</span>${l}</button>`).join('');}
 /* browser history, so the phone's Back button steps back through screens */
 let navIdx=0;
-const snap=()=>({i:navIdx,tab:S.tab,deckId:S.deckId,dtab:S.dtab});
+const snap=()=>({i:navIdx,tab:S.tab,deckId:S.deckId,dtab:S.dtab,fr:S.fr?{id:S.fr.id,name:S.fr.name,tab:S.fr.tab}:null});
 function pushNav(){navIdx++;try{history.pushState(snap(),'');}catch(e){}}
 function replaceNav(){try{history.replaceState(snap(),'');}catch(e){}}
-function navBack(){if(navIdx>0)history.back();else if(S.deckId){S.deckId=null;renderDeckList();scrollTo(0,0);}else setTab('search');}
+function navBack(){if(navIdx>0)history.back();else if(S.fr){S.fr=null;renderFriends();scrollTo(0,0);}else if(S.deckId){S.deckId=null;renderDeckList();scrollTo(0,0);}else setTab('search');}
 addEventListener('popstate',ev=>{
   const st=ev.state;if(!st||typeof st.i!=='number')return;
   const dl=$('#dlg');if(dl&&dl.open)dl.close();
-  navIdx=st.i;stopCamera();S.tab=st.tab||'search';S.deckId=st.deckId||null;S.dtab=st.dtab||'cards';buildNav();render();scrollTo(0,0);
+  navIdx=st.i;stopCamera();S.tab=st.tab||'search';S.deckId=st.deckId||null;S.dtab=st.dtab||'cards';S.fr=st.fr?{id:st.fr.id,name:st.fr.name,tab:st.fr.tab,data:null}:null;buildNav();render();scrollTo(0,0);
 });
-function setTab(t){const changed=t!==S.tab||!!S.deckId;stopCamera();S.tab=t;S.deckId=null;buildNav();if(changed)pushNav();render();scrollTo(0,0);}
-function render(){document.body.classList.toggle('life-on',S.tab==='life');if(S.tab!=='life')releaseWake();({search:renderSearch,coll:renderColl,decks:renderDecks,scan:renderScan,life:renderLife,sync:renderSync})[S.tab]();}
-function refreshView(){const t=S.tab;if(t==='search')renderResults();else if(t==='coll')renderCollList();else if(t==='decks')renderDecks();else if(t==='scan')updateScanUI();else if(t==='life'){}else renderSync();}
+function setTab(t){const changed=t!==S.tab||!!S.deckId||!!S.fr;stopCamera();S.tab=t;S.deckId=null;S.fr=null;buildNav();if(changed)pushNav();render();scrollTo(0,0);}
+function render(){document.body.classList.toggle('life-on',S.tab==='life');if(S.tab!=='life')releaseWake();({search:renderSearch,coll:renderColl,decks:renderDecks,scan:renderScan,life:renderLife,friends:renderFriends,sync:renderSync})[S.tab]();}
+function refreshView(){const t=S.tab;if(t==='search')renderResults();else if(t==='coll')renderCollList();else if(t==='decks')renderDecks();else if(t==='scan')updateScanUI();else if(t==='life'){}else if(t==='friends')renderFriends();else renderSync();}
 
 /* search */
 function resultTile(c){
@@ -847,7 +855,7 @@ function deckInfoView(d){
     <div class="kv"><span>Cards</span><span>${st.n}</span></div>
     <div class="kv"><span>Value</span><span>${money(st.val)}</span></div>
     <div class="kv"><span>Wishlist</span><span>${D.boards.wish.reduce((a,x)=>a+x.e.qty,0)} cards · ${money(D.boards.wish.reduce((a,x)=>a+x.e.qty*(unitPrice(x.c,false)||0),0))}</span></div>
-    <div class="bar" style="margin-top:14px"><button class="btn primary" data-a="importdeck">Import list</button><button class="btn" data-a="copydeck">Copy list</button><button class="btn" data-a="renamedeck">Rename</button><button class="btn danger" data-a="deletedeck">Delete deck</button></div>
+    <div class="bar" style="margin-top:14px"><button class="btn primary" data-a="importdeck">Import list</button><button class="btn" data-a="copydeck">Copy list</button><button class="btn" data-a="renamedeck">Rename</button><button class="btn" data-a="sharelink">Share link</button>${fbConfig()?`<button class="chip" data-a="fbsharedeck" data-id="${d.id}" aria-pressed="${!!d.shared}">Share with friends</button>`:''}<button class="btn danger" data-a="deletedeck">Delete deck</button></div>
     <h3>Collection</h3>
     <p class="sub">Mark this deck's cards as owned, using the exact printings in the deck. Foil status isn't tracked in decks, so they're added as normal copies.</p>
     <div class="bar"><button class="btn" data-a="deck2coll" data-mode="missing">Add cards I'm missing</button><button class="btn" data-a="deck2coll" data-mode="all">Add every card</button></div>
@@ -1026,6 +1034,7 @@ async function syncNow(manual){
   }finally{SYNC.busy=false;if(S.tab==='sync')renderSync();}
 }
 function syncSoon(){
+  shareSoon();
   if(!syncCfg().signed||!clientId())return;
   clearTimeout(SYNC.t);SYNC.dirty=true;
   SYNC.t=setTimeout(()=>{if(tokenOK()&&navigator.onLine)syncNow(false);},4000);
@@ -1054,6 +1063,297 @@ function syncSection(){
     ${c.err?`<p class="err">${esc(c.err)}</p>`:''}
     <div class="bar"><button class="btn primary" data-a="gsync" ${SYNC.busy?'disabled':''}>${SYNC.busy?'Syncing…':'Sync now'}</button><button class="btn" data-a="gsignout">Sign out</button></div>`;
 }
+
+
+/* ---------- share links (no account needed) ---------- */
+const hexId=id=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)?id.replace(/-/g,''):id;
+const unhexId=h=>/^[0-9a-f]{32}$/.test(h)?`${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`:h;
+function b64uEnc(bytes){let b='';for(let i=0;i<bytes.length;i+=8192)b+=String.fromCharCode.apply(null,bytes.subarray(i,i+8192));return btoa(b).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function b64uDec(t){t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';const b=atob(t),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
+async function pipeBytes(bytes,stream){const w=stream.writable.getWriter();w.write(bytes);w.close();return new Uint8Array(await new Response(stream.readable).arrayBuffer());}
+async function encodeShare(obj){
+  const raw=new TextEncoder().encode(JSON.stringify(obj));
+  if(typeof CompressionStream==='function'){try{return 'z'+b64uEnc(await pipeBytes(raw,new CompressionStream('deflate-raw')));}catch(e){}}
+  return 'r'+b64uEnc(raw);
+}
+async function decodeShare(t){
+  const bytes=b64uDec(t.slice(1));
+  const raw=t[0]==='z'?await pipeBytes(bytes,new DecompressionStream('deflate-raw')):bytes;
+  return JSON.parse(new TextDecoder().decode(raw));
+}
+const BOARDS=['commander','main','side','wish'];
+/* anything that arrives from a link or a friend is untrusted: keep only the shapes we expect */
+function cleanDeck(o,by){
+  if(!o||typeof o!=='object')return null;
+  const cards=(Array.isArray(o.cards)?o.cards:[]).slice(0,600).map(e=>({id:String(e.id||'').slice(0,64),qty:Math.min(999,Math.max(1,Math.floor(+e.qty)||1)),board:BOARDS.includes(e.board)?e.board:'main',name:String(e.name||'').slice(0,80)})).filter(e=>/^[A-Za-z0-9-]{3,64}$/.test(e.id));
+  return {name:String(o.name||'Shared deck').slice(0,60),format:String(o.format||'Other').slice(0,20),by:String(by||o.by||'').slice(0,30),cards};
+}
+async function deckLink(d){
+  const code=await encodeShare({v:1,t:'deck',n:d.name,f:d.format,by:(FB.profile&&FB.profile.name)||'',c:d.cards.map(e=>[hexId(e.id),e.qty,e.board])});
+  return location.origin+location.pathname+'#share='+code;
+}
+async function shareDeckLink(d){
+  let url;try{url=await deckLink(d);}catch(e){toast('Could not make a link');return;}
+  try{if(navigator.share){await navigator.share({title:d.name,text:d.name+' on Pocket Binder',url});return;}}catch(e){if(e&&e.name==='AbortError')return;}
+  try{await navigator.clipboard.writeText(url);toast('Link copied. Anyone who opens it can view and copy this deck.');}catch(e){prompt('Copy this link',url);}
+}
+async function openShareFromHash(){
+  const m=/^#share=([zr][A-Za-z0-9_-]+)$/.exec(location.hash);if(!m)return;
+  try{history.replaceState(history.state,'',location.pathname+location.search);}catch(e){}
+  try{const o=await decodeShare(m[1]);if(!o||o.t!=='deck')throw 0;
+    openSharedDeck(cleanDeck({name:o.n,format:o.f,by:o.by,cards:(o.c||[]).map(([h,q,b])=>({id:unhexId(String(h)),qty:q,board:b}))}));}
+  catch(e){toast('That share link could not be opened');}
+}
+async function openSharedDeck(sd){
+  if(!sd)return;S.sdeck=sd;renderSharedDeck();const dl=$('#dlg');if(!dl.open)dl.showModal();
+  const miss=[...new Set(sd.cards.map(e=>e.id))].filter(id=>!S.cards.has(id));
+  if(miss.length){try{const {found}=await fetchCollection(miss.map(id=>({id})));remember(found,false);}catch(e){sd.err=navigator.onLine?'Could not load card details.':'Offline, so card details are missing.';}}
+  sd.loaded=true;if(S.sdeck===sd&&$('#dlg').open)renderSharedDeck();
+}
+function renderSharedDeck(){
+  const sd=S.sdeck;if(!sd)return;
+  const label={commander:'Commander',main:'Main deck',side:'Sideboard',wish:'Wishlist'};
+  const groups=BOARDS.map(b=>[b,sd.cards.filter(e=>e.board===b)]).filter(([b,l])=>l.length);
+  const n=sd.cards.filter(e=>e.board!=='wish').reduce((a,e)=>a+e.qty,0);
+  const row=e=>{const c=S.cards.get(e.id);
+    return c?`<div class="row" style="cursor:default">${art(c)}<div class="rmain"><b>${esc(c.name)}</b><div class="line">${typeIcon(typeGroup(c.type))}${costHTML(c.mana)}<span class="sub">${esc(c.set.toUpperCase())} #${esc(c.cn)}</span></div></div><span class="qb2">×${e.qty}</span></div>`
+      :`<div class="row" style="cursor:default"><div class="rmain"><b>${esc(e.name||'Loading…')}</b></div><span class="qb2">×${e.qty}</span></div>`;};
+  $('#dlg').innerHTML=`<div class="sheet"><div class="bar" style="justify-content:space-between;margin:0"><h2 style="margin:0;display:block">${esc(sd.name)}</h2><button class="btn small" data-a="close">Close</button></div>
+    <p class="sub">${esc(sd.format)} · ${n} cards${sd.by?' · shared by '+esc(sd.by):''}${sd.loaded||!sd.cards.some(e=>!S.cards.has(e.id))?'':' · loading card details…'}</p>
+    ${sd.err?`<p class="err">${esc(sd.err)}</p>`:''}
+    <div class="bar"><button class="btn primary" data-a="sdimport" style="flex:1">Import a copy to my decks</button></div>
+    ${groups.map(([b,l])=>`<h3>${label[b]} · ${l.reduce((a,e)=>a+e.qty,0)}</h3>`+l.slice().sort((x,y)=>((S.cards.get(x.id)||{name:x.name}).name||'').localeCompare((S.cards.get(y.id)||{name:y.name}).name||'')).map(row).join('')).join('')}</div>`;
+}
+function importSharedDeck(){
+  const sd=S.sdeck;if(!sd)return;
+  const d={id:uid(),name:(sd.name+(sd.by?` (from ${sd.by})`:'')).slice(0,60),format:sd.format,cards:sd.cards.map(e=>({id:e.id,qty:e.qty,board:e.board})),created:Date.now(),updated:Date.now()};
+  S.decks.push(d);sd.cards.forEach(e=>persistCard(e.id));saveDeck(d);
+  $('#dlg').close();S.sdeck=null;toast('Imported "'+d.name+'" to your decks');if(S.tab==='decks'&&!S.deckId)renderDecks();else setTab('decks');
+}
+
+/* ---------- friends (Firebase: sign-in and a small shared database) ---------- */
+const FB={ready:false,loading:null,user:null,profile:null,friends:[],requests:[],err:'',busy:false,pub:{},pushing:false,t:null,fileCfg:null,loaded:false};
+const FB_VER='10.12.2';
+const FB_RULES=`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    match /profiles/{uid} { allow get: if signedIn(); allow write: if request.auth.uid == uid; }
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+    match /allow/{owner}/readers/{reader} {
+      allow read: if request.auth.uid == owner || request.auth.uid == reader;
+      allow write: if request.auth.uid == owner;
+    }
+    match /friends/{uid}/list/{fid} { allow read, write: if request.auth.uid == uid; }
+    match /inbox/{uid}/requests/{from} {
+      allow read: if request.auth.uid == uid;
+      allow create, update: if request.auth.uid == from;
+      allow delete: if request.auth.uid == uid || request.auth.uid == from;
+    }
+    match /shared/{owner}/{coll}/{doc} {
+      allow write: if request.auth.uid == owner;
+      allow read: if request.auth.uid == owner || exists(/databases/$(database)/documents/allow/$(owner)/readers/$(request.auth.uid));
+    }
+  }
+}`;
+function fbConfig(){
+  try{const j=JSON.parse(localStorage.getItem('pb-fb')||'null');if(j&&j.apiKey&&j.projectId)return j;}catch(e){}
+  return FB.fileCfg;
+}
+async function fbLoadFileCfg(){try{const r=await fetch('firebase-config.json',{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&j.apiKey&&j.projectId)FB.fileCfg=j;}}catch(e){}}
+function loadScript(src){return new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=src;sc.onload=res;sc.onerror=()=>rej(new Error('Could not load the friends service. Check your connection.'));document.head.appendChild(sc);});}
+function fbInit(){
+  if(FB.loading)return FB.loading;
+  FB.loading=(async()=>{
+    const cfg=fbConfig();if(!cfg)throw new Error('Friends are not set up yet');
+    if(!(window.firebase&&firebase.apps)){
+      for(const f of ['app','auth','firestore'])await loadScript(`https://www.gstatic.com/firebasejs/${FB_VER}/firebase-${f}-compat.js`);
+    }
+    if(!firebase.apps.length)firebase.initializeApp(cfg);
+    FB.auth=firebase.auth();FB.fs=firebase.firestore();
+    await new Promise(res=>{let first=true;FB.auth.onAuthStateChanged(u=>{FB.user=u||null;if(first){first=false;res();}else{if(!u){FB.profile=null;FB.friends=[];FB.requests=[];FB.loaded=false;}if(S.tab==='friends')renderFriends();}});});
+    FB.ready=true;
+  })().catch(e=>{FB.loading=null;throw e;});
+  return FB.loading;
+}
+const FB_ALPHA='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const newCode=()=>{const a=new Uint8Array(8);crypto.getRandomValues(a);return [...a].map(x=>FB_ALPHA[x%FB_ALPHA.length]).join('');};
+async function fbEnsureProfile(){
+  const fs=FB.fs,uid=FB.user.uid,ref=fs.doc('profiles/'+uid),snap=await ref.get();
+  if(snap.exists){FB.profile=snap.data();}
+  else{
+    let code='';
+    for(let i=0;i<6;i++){const c=newCode(),cs=await fs.doc('codes/'+c).get();if(!cs.exists){await fs.doc('codes/'+c).set({uid});code=c;break;}}
+    if(!code)throw new Error('Could not create a friend code, try again');
+    FB.profile={name:String(FB.user.displayName||'Player').slice(0,30),code};await ref.set(FB.profile);
+  }
+}
+async function fbLoadFriends(){
+  const fs=FB.fs,me=FB.user.uid;
+  const [fl,rq]=await Promise.all([fs.collection(`friends/${me}/list`).get(),fs.collection(`inbox/${me}/requests`).get()]);
+  FB.friends=fl.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  FB.requests=rq.docs.map(d=>({id:d.id,...d.data()}));
+  for(const f of FB.friends.filter(f=>f.status==='pending')){   // they accepted once they let us read their info
+    try{await fs.doc(`shared/${f.id}/meta/info`).get();f.status='friends';await fs.doc(`friends/${me}/list/${f.id}`).set({name:f.name,status:'friends',t:f.t||Date.now()});}catch(e){}
+  }
+  FB.loaded=true;
+}
+async function fbOpen(){
+  FB.err='';FB.busy=true;const ready=fbInit();renderFriends();
+  try{await ready;if(FB.user){if(!FB.profile)await fbEnsureProfile();await fbLoadFriends();fbPublishInfo();}}
+  catch(e){FB.err=e.message||'Something went wrong';}
+  finally{FB.busy=false;if(S.tab==='friends')renderFriends();}
+}
+async function fbPublishInfo(){try{await FB.fs.doc(`shared/${FB.user.uid}/meta/info`).set({updated:Date.now(),name:FB.profile.name});}catch(e){}}
+async function fbSignIn(){
+  FB.err='';FB.busy=true;renderFriends();
+  try{await fbInit();const prov=new firebase.auth.GoogleAuthProvider();await FB.auth.signInWithPopup(prov);await fbEnsureProfile();await fbLoadFriends();try{localStorage.setItem('pb-fbon','1');}catch(e){}fbPublishInfo();shareSoon();}
+  catch(e){FB.err=e&&e.code==='auth/popup-closed-by-user'?'Sign-in was cancelled':(e.message||'Sign-in failed');}
+  finally{FB.busy=false;renderFriends();}
+}
+async function fbDo(fn,okMsg){
+  FB.busy=true;FB.err='';renderFriends();
+  try{await fn();if(okMsg)toast(okMsg);await fbLoadFriends();}
+  catch(e){FB.err=(e&&e.code==='permission-denied')?'Not allowed. Check that the Firestore rules from setup are published.':(e.message||'Something went wrong');}
+  finally{FB.busy=false;renderFriends();}
+}
+const fbAddFriend=code=>fbDo(async()=>{
+  const fs=FB.fs,me=FB.user.uid;code=String(code||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length!==8)throw new Error('Friend codes are 8 letters and numbers');
+  const cs=await fs.doc('codes/'+code).get();if(!cs.exists)throw new Error('No one has that friend code');
+  const uid=cs.data().uid;if(uid===me)throw new Error('That is your own code');
+  if(FB.friends.some(f=>f.id===uid))throw new Error('You already added them');
+  const ps=await fs.doc('profiles/'+uid).get();const name=ps.exists?String(ps.data().name||'Friend').slice(0,30):'Friend';
+  await fs.doc(`allow/${me}/readers/${uid}`).set({t:Date.now()});
+  await fs.doc(`friends/${me}/list/${uid}`).set({name,status:'pending',t:Date.now()});
+  await fs.doc(`inbox/${uid}/requests/${me}`).set({name:FB.profile.name,t:Date.now()});
+},'Request sent');
+const fbAccept=(id,name)=>fbDo(async()=>{
+  const fs=FB.fs,me=FB.user.uid;
+  await fs.doc(`allow/${me}/readers/${id}`).set({t:Date.now()});
+  await fs.doc(`friends/${me}/list/${id}`).set({name:String(name||'Friend').slice(0,30),status:'friends',t:Date.now()});
+  await fs.doc(`inbox/${me}/requests/${id}`).delete();
+  fbPublishInfo();shareSoon();
+},'Friend added');
+const fbDecline=id=>fbDo(async()=>{await FB.fs.doc(`inbox/${FB.user.uid}/requests/${id}`).delete();});
+const fbRemove=id=>fbDo(async()=>{
+  const fs=FB.fs,me=FB.user.uid;
+  await fs.doc(`allow/${me}/readers/${id}`).delete();await fs.doc(`friends/${me}/list/${id}`).delete();
+  try{await fs.doc(`inbox/${id}/requests/${me}`).delete();}catch(e){}
+},'Removed');
+async function fbSaveName(name){
+  name=String(name||'').trim().slice(0,30);if(!name)return;
+  await fbDo(async()=>{FB.profile={...FB.profile,name};await FB.fs.doc('profiles/'+FB.user.uid).set(FB.profile);await fbPublishInfo();},'Name saved');
+}
+/* what I share: my collection (if switched on) and any decks marked "Share with friends" */
+function loadShare(){try{S.share=Object.assign({coll:false},JSON.parse(localStorage.getItem('pb-share')||'{}'));}catch(e){}}
+const saveShare=()=>{try{localStorage.setItem('pb-share',JSON.stringify(S.share));}catch(e){}};
+function shareSoon(){
+  if(!FB.user||!FB.ready)return;
+  clearTimeout(FB.t);FB.t=setTimeout(pushShared,6000);
+}
+async function pushShared(){
+  if(!FB.user||FB.pushing)return;FB.pushing=true;
+  try{
+    const fs=FB.fs,me=FB.user.uid,now=Date.now();
+    const sig=`${S.coll.size}:${[...S.coll.values()].reduce((a,e)=>a+e.qty*7+e.foil*13+(e.t||0)%1000,0)}`;
+    if(S.share.coll){
+      if(FB.pub.coll!==sig){
+        const entries=[...S.coll.values()].map(e=>{const c=S.cards.get(e.id);return [e.id,e.qty,e.foil,c?c.name:'',c?c.set:'',c?c.cn:''];});
+        const data=JSON.stringify(entries);
+        if(data.length>900000)throw new Error('Your collection is too big to share right now');
+        await fs.doc(`shared/${me}/meta/collection`).set({data,count:entries.length,updated:now});FB.pub.coll=sig;
+      }
+    }else if(FB.pub.coll!=='off'){try{await fs.doc(`shared/${me}/meta/collection`).delete();}catch(e){}FB.pub.coll='off';}
+    const have=new Set((await fs.collection(`shared/${me}/decks`).get()).docs.map(d=>d.id));
+    for(const d of S.decks){
+      if(d.shared){
+        if(FB.pub[d.id]!==d.updated||!have.has(d.id)){
+          const cards=d.cards.map(e=>{const c=S.cards.get(e.id);return {id:e.id,qty:e.qty,board:e.board,name:c?c.name:''};});
+          await fs.doc(`shared/${me}/decks/${d.id}`).set({name:d.name,format:d.format,count:cards.reduce((a,e)=>a+(e.board==='wish'?0:e.qty),0),data:JSON.stringify(cards),updated:now});FB.pub[d.id]=d.updated;
+        }
+      }else if(have.has(d.id)){await fs.doc(`shared/${me}/decks/${d.id}`).delete();delete FB.pub[d.id];}
+    }
+    for(const id of have)if(!S.decks.some(d=>d.id===id&&d.shared)){try{await fs.doc(`shared/${me}/decks/${id}`).delete();}catch(e){}}
+    FB.err='';
+  }catch(e){FB.err=e.message||'Could not update what you share';}
+  finally{FB.pushing=false;if(S.tab==='friends'&&!S.fr)renderFriends();}
+}
+/* friend's page */
+const cardImg=(id,size)=>/^[0-9a-f]{8}-/.test(id)?`https://cards.scryfall.io/${size}/front/${id[0]}/${id[1]}/${id}.jpg`:'';
+async function openFriend(id,name){
+  S.fr={id,name,tab:'decks',data:null,q:''};pushNav();renderFriends();
+  const fr=S.fr;
+  try{
+    const fs=FB.fs,decks=await fs.collection(`shared/${id}/decks`).get();
+    const cs=await fs.doc(`shared/${id}/meta/collection`).get();
+    let coll=null;if(cs.exists){try{coll=JSON.parse(cs.data().data).slice(0,12000).filter(r=>Array.isArray(r)).map(r=>({id:String(r[0]).slice(0,64),qty:+r[1]||0,foil:+r[2]||0,name:String(r[3]||'').slice(0,80),set:String(r[4]||'').slice(0,8),cn:String(r[5]||'').slice(0,8)}));}catch(e){coll=[];}}
+    fr.data={decks:decks.docs.map(d=>({id:d.id,...d.data()})),coll};
+  }catch(e){fr.err=(e&&e.code==='permission-denied')?'They have not accepted yet, or removed you.':(e.message||'Could not load');}
+  if(S.fr===fr)renderFriends();
+}
+function openFriendDeck(id){
+  const d=S.fr&&S.fr.data&&S.fr.data.decks.find(x=>x.id===id);if(!d)return;
+  let cards=[];try{cards=JSON.parse(d.data);}catch(e){}
+  openSharedDeck(cleanDeck({name:d.name,format:d.format,cards},S.fr.name));
+}
+function friendCollHTML(fr){
+  const list=fr.data.coll;if(!list)return '<p class="empty">They are not sharing their collection.</p>';
+  const q=(fr.q||'').trim().toLowerCase(),items=list.filter(r=>!q||r.name.toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
+  const shown=items.slice(0,fr.limit||90);
+  return `<div class="bar"><label class="searchbox">${IC.search}<input id="frq" type="search" placeholder="Search ${esc(fr.name)}'s collection" value="${esc(fr.q||'')}" autocomplete="off"></label></div>
+    <p class="sub">${items.length} of ${list.length} unique cards</p>
+    <div class="cgrid" style="--cols:${S.collCols}">${shown.map(r=>`<div class="ctile"><button class="open" data-a="frcard" data-id="${esc(r.id)}"><span class="iw"><img src="${esc(cardImg(r.id,'small'))}" alt="${esc(r.name)}" loading="lazy"></span></button><span class="qb">×${r.qty+r.foil}</span>${r.foil?'<span class="fb">FOIL</span>':''}</div>`).join('')}</div>
+    ${items.length>shown.length?`<div class="bar"><button class="btn" data-a="frmore">Show more (${items.length-shown.length} left)</button></div>`:''}`;
+}
+function renderFriends(){
+  const cfg=fbConfig();
+  if(S.fr){
+    const fr=S.fr;setHeader({title:fr.name,back:true});
+    $('#view').innerHTML=`<div class="bar"><div class="seg" role="group"><button data-a="frtab" data-v="decks" aria-pressed="${fr.tab==='decks'}">Decks</button><button data-a="frtab" data-v="coll" aria-pressed="${fr.tab==='coll'}">Collection</button></div></div>
+      <div id="frbody">${fr.err?`<p class="err">${esc(fr.err)}</p>`:!fr.data?'<p class="empty">Loading…</p>':fr.tab==='decks'?(fr.data.decks.length?fr.data.decks.map(d=>`<button class="deckrow" data-a="frdeck" data-id="${esc(d.id)}"><div class="rmain"><b>${esc(d.name)}</b><span class="sub">${esc(d.format||'')} · ${+d.count||0} cards</span></div></button>`).join(''):'<p class="empty">No shared decks yet.</p>'):friendCollHTML(fr)}</div>`;
+    return;
+  }
+  setHeader({title:'Friends'});
+  const v=$('#view');
+  if(!cfg){
+    v.innerHTML=`<p>See your friends' decks and collections, and let them see yours. You choose exactly what you share.</p>
+      <p class="sub">This needs a free Firebase project that stores the shared data. Set it up once, then everyone who uses this app can sign in with Google and add each other with friend codes.</p>
+      <details class="shfilters"><summary>One-time setup (about 15 minutes)</summary><ol class="steps">
+        <li>Open <b>console.firebase.google.com</b>, create a project (turn off Analytics), then add a <b>Web app</b> (the &lt;/&gt; icon). Copy the <code>firebaseConfig</code> it shows you.</li>
+        <li><b>Build, Authentication</b>: get started and enable the <b>Google</b> sign-in provider. Under Settings, Authorized domains, add <code>${esc(location.hostname)}</code>.</li>
+        <li><b>Build, Firestore Database</b>: create a database (production mode).</li>
+        <li>In Firestore, open <b>Rules</b>, paste these rules over the old ones and <b>Publish</b>:</li></ol>
+        <div class="bar"><button class="btn small" data-a="fbcopyrules">Copy rules</button></div><pre class="rules">${esc(FB_RULES)}</pre>
+        <p class="sub">Last step: paste the config below on this device. To make it work for your friends too, send the same config to whoever maintains the app so it ships with it.</p></details>
+      <textarea id="fbcfg" rows="6" placeholder='Paste the firebaseConfig here, e.g. { "apiKey": "...", "authDomain": "...", "projectId": "...", ... }' spellcheck="false" style="width:100%"></textarea>
+      <div class="bar"><button class="btn primary" data-a="fbsavecfg">Save</button></div>${FB.err?`<p class="err">${esc(FB.err)}</p>`:''}`;
+    return;
+  }
+  if(!FB.ready||FB.busy&&!FB.user){v.innerHTML=`<p class="empty">${FB.err?esc(FB.err):'Loading…'}</p>${FB.err?'<div class="bar"><button class="btn" data-a="fbrefresh">Try again</button></div>':''}`;if(!FB.ready&&!FB.loading&&!FB.err)fbOpen();return;}
+  if(!FB.user){v.innerHTML=`<p>Sign in to add friends and share decks.</p><div class="bar"><button class="btn primary" data-a="fbsignin" ${FB.busy?'disabled':''}>Sign in with Google</button></div>${FB.err?`<p class="err">${esc(FB.err)}</p>`:''}${localCfgRow()}`;return;}
+  const pr=FB.profile||{name:'',code:''};
+  v.innerHTML=`${FB.err?`<p class="err">${esc(FB.err)}</p>`:''}
+    <h2>You</h2>
+    <div class="bar"><input type="text" id="fbname" value="${esc(pr.name)}" maxlength="30" aria-label="Your name" style="flex:1"><button class="btn" data-a="fbname">Save name</button></div>
+    <div class="kv"><span>Your friend code</span><span><b class="code">${esc(pr.code)}</b> <button class="btn small" data-a="fbcopycode">Copy</button></span></div>
+    <h2>Add a friend</h2>
+    <div class="bar"><input type="text" id="fbcode" placeholder="Friend code" maxlength="12" autocapitalize="characters" autocomplete="off" style="flex:1"><button class="btn primary" data-a="fbaddfriend" ${FB.busy?'disabled':''}>Add</button></div>
+    <p class="sub">Adding someone lets them see what you share. They share theirs back by accepting.</p>
+    ${FB.requests.length?`<h2>Requests</h2>${FB.requests.map(r=>`<div class="row"><div class="rmain"><b>${esc(r.name||'Someone')}</b><span class="sub">wants to be friends</span></div><button class="btn small primary" data-a="fbaccept" data-id="${esc(r.id)}" data-n="${esc(r.name||'')}">Accept</button><button class="btn small" data-a="fbdecline" data-id="${esc(r.id)}">Decline</button></div>`).join('')}`:''}
+    <h2>Friends</h2>
+    ${FB.friends.length?FB.friends.map(f=>`<div class="row" ${f.status==='friends'?`data-a="fbopen" data-id="${esc(f.id)}" data-n="${esc(f.name)}" style="cursor:pointer"`:''}><div class="rmain"><b>${esc(f.name)}</b><span class="sub">${f.status==='friends'?'Tap to see their decks and collection':'Waiting for them to accept'}</span></div><button class="btn small" data-stop data-a="fbremove" data-id="${esc(f.id)}">Remove</button></div>`).join(''):'<p class="empty">No friends yet. Share your code or add theirs.</p>'}
+    <h2>What I share</h2>
+    <div class="chips"><button class="chip" data-a="fbsharecoll" aria-pressed="${S.share.coll}">My collection</button></div>
+    <p class="sub">Decks: tap a deck below to share it with friends.</p>
+    <div class="chips" style="margin-top:8px">${S.decks.length?S.decks.map(d=>`<button class="chip" data-a="fbsharedeck" data-id="${d.id}" aria-pressed="${!!d.shared}">${esc(d.name)}</button>`).join(''):'<span class="sub">You have no decks yet.</span>'}</div>
+    <div class="bar" style="margin-top:18px"><button class="btn" data-a="fbrefresh">Refresh</button><button class="btn" data-a="fbsignout">Sign out</button></div>${localCfgRow()}`;
+}
+function localCfgRow(){try{if(localStorage.getItem('pb-fb'))return '<div class="bar"><button class="btn small" data-a="fbclearcfg">Remove the config saved on this device</button></div>';}catch(e){}return '';}
 
 /* card sheet */
 let sheetId=null,sheetBoard='main';
@@ -1493,6 +1793,29 @@ document.addEventListener('click',async ev=>{
     case 'cinc':counterChange(+el.dataset.p,el.dataset.k,1);break;
     case 'cdec':counterChange(+el.dataset.p,el.dataset.k,-1);break;
     case 'godata':setTab('sync');break;
+    case 'sharelink':shareDeckLink(deckById(S.deckId));break;
+    case 'sdimport':importSharedDeck();break;
+    case 'fbsignin':fbSignIn();break;
+    case 'fbsignout':if(FB.auth)await FB.auth.signOut();try{localStorage.removeItem('pb-fbon');}catch(e){}FB.pub={};renderFriends();break;
+    case 'fbrefresh':FB.loading=null;fbOpen();break;
+    case 'fbsavecfg':{let j;try{j=JSON.parse(($('#fbcfg').value||'').replace(/^[^{]*/,'').replace(/;?\s*$/,'').replace(/'/g,'"').replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g,'$1"$2":').replace(/,\s*}/g,'}'));}catch(e){}
+      if(!j||!j.apiKey||!j.projectId){FB.err='That does not look like a Firebase config. It needs apiKey and projectId.';renderFriends();break;}
+      try{localStorage.setItem('pb-fb',JSON.stringify(j));}catch(e){}FB.err='';FB.loading=null;FB.ready=false;renderFriends();break;}
+    case 'fbclearcfg':if(confirm('Remove the saved friends config from this device?')){try{localStorage.removeItem('pb-fb');localStorage.removeItem('pb-fbon');}catch(e){}if(FB.auth)try{await FB.auth.signOut();}catch(e){}FB.loading=null;FB.ready=false;FB.user=null;renderFriends();}break;
+    case 'fbcopyrules':try{await navigator.clipboard.writeText(FB_RULES);toast('Rules copied');}catch(e){toast('Select and copy the rules text');}break;
+    case 'fbname':fbSaveName($('#fbname').value);break;
+    case 'fbcopycode':try{await navigator.clipboard.writeText(FB.profile.code);toast('Friend code copied');}catch(e){toast('Your code is '+FB.profile.code);}break;
+    case 'fbaddfriend':fbAddFriend($('#fbcode').value);break;
+    case 'fbaccept':fbAccept(id,el.dataset.n);break;
+    case 'fbdecline':fbDecline(id);break;
+    case 'fbremove':if(confirm('Remove this friend? They will no longer see what you share.'))fbRemove(id);break;
+    case 'fbopen':if(ev.target.closest('[data-stop]'))return;openFriend(id,el.dataset.n);break;
+    case 'frtab':S.fr.tab=el.dataset.v;renderFriends();break;
+    case 'frdeck':openFriendDeck(id);break;
+    case 'frmore':S.fr.limit=(S.fr.limit||90)+90;renderFriends();break;
+    case 'frcard':{const r=S.fr.data.coll.find(x=>x.id===id);if(r){$('#dlg').innerHTML=`<div class="sheet"><div class="bar" style="justify-content:flex-end;margin:0"><button class="btn small" data-a="close">Close</button></div><img class="big" src="${esc(cardImg(id,'normal'))}" alt="${esc(r.name)}"><h2>${esc(r.name)}</h2><p class="sub">${esc(r.set.toUpperCase())} #${esc(r.cn)} · ${r.qty} normal${r.foil?`, ${r.foil} foil`:''}</p></div>`;if(!$('#dlg').open)$('#dlg').showModal();}break;}
+    case 'fbsharecoll':S.share.coll=!S.share.coll;saveShare();el.setAttribute('aria-pressed',S.share.coll);if(!FB.user){toast('Sign in first');S.share.coll=false;saveShare();el.setAttribute('aria-pressed',false);break;}FB.pub.coll=null;clearTimeout(FB.t);pushShared();break;
+    case 'fbsharedeck':{const d=deckById(id||S.deckId);if(!d)break;if(!FB.user){toast('Open the Friends tab and sign in first');break;}d.shared=!d.shared;saveDeck(d);el.setAttribute('aria-pressed',!!d.shared);toast(d.shared?'Friends can see this deck':'No longer shared');clearTimeout(FB.t);FB.t=setTimeout(pushShared,800);break;}
     case 'gsaveid':{const v=($('#gcid').value||'').trim();if(!/\.apps\.googleusercontent\.com$/.test(v)){toast('That does not look like a Google client ID (it ends in .apps.googleusercontent.com)');break;}setSyncCfg({cid:v,err:''});renderSync();break;}
     case 'gchangeid':setSyncCfg({cid:'',signed:false,err:''});SYNC.tc=null;renderSync();break;
     case 'gsync':syncNow(true);break;
@@ -1518,6 +1841,7 @@ document.addEventListener('input',ev=>{
   if(ev.target.id==='dn'){clearTimeout(suggestNames.t);const v=ev.target.value;suggestNames.t=setTimeout(()=>suggestNames(v),250);}
   if(ev.target.id==='pbq'){clearTimeout(pbSearch.t);const v=ev.target.value;pbSearch.t=setTimeout(()=>pbSearch(v),250);}
   if(ev.target.id==='sftext'){S.shuf.f.text=ev.target.value;saveShuf();}
+  if(ev.target.id==='frq'){S.fr.q=ev.target.value;S.fr.limit=90;const b=$('#frbody');if(b){const pos=ev.target.selectionStart;b.innerHTML=friendCollHTML(S.fr);const i=$('#frq');if(i){i.focus();try{i.setSelectionRange(pos,pos);}catch(e){}}}}
   if(ev.target.id==='cq'){S.collQ=ev.target.value;S.collLimit=90;renderCollList();}
   if(ev.target.id==='ftext'){S.filt.text=ev.target.value;S.collLimit=90;renderCollList();}
   if(ev.target.id==='ccols'){const n=+ev.target.value,g=$('.cgrid');S.collCols=n;$('#colsn').textContent=n;if(g)g.style.setProperty('--cols',n);}
@@ -1572,7 +1896,8 @@ async function load(){
     if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
   }catch(e){setHeader({title:'Pocket Binder'});$('#view').innerHTML='<p class="err">This browser blocked on-device storage, so nothing can be saved. Try opening the app in Chrome outside private mode.</p>';return;}
   if(history.state&&typeof history.state.i==='number'){const st=history.state;navIdx=st.i;S.tab=st.tab||'search';S.deckId=st.deckId||null;S.dtab=st.dtab||'cards';buildNav();}else replaceNav();
-  render();
+  loadShare();render();openShareFromHash();
+  fbLoadFileCfg().then(()=>{try{if(localStorage.getItem('pb-fbon')&&fbConfig())fbInit().then(async()=>{if(FB.user){await fbEnsureProfile();await fbLoadFriends();shareSoon();}}).catch(()=>{});}catch(e){}if(S.tab==='friends')renderFriends();});
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
   // Refresh once a day, and right away if saved cards are missing newer fields (art, colors).
   const stale=referencedIds().some(id=>{const c=S.cards.get(id);return !c||c.v!==CARD_V;});
