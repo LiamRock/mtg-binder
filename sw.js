@@ -1,5 +1,5 @@
 'use strict';
-const SHELL = 'pocket-binder-shell-v9';
+const SHELL = 'pocket-binder-shell-v10';
 const IMAGES = 'pocket-binder-images-v1';
 const SHELL_FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'mana/mana.css', 'mana/fonts/mana.woff2'];
 const MAX_IMAGES = 500;

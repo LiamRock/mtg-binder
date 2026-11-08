@@ -556,7 +556,7 @@ function renderResults(){
   if(s.mode==='shuffle'){renderShuffleResults();return;}
   if(s.err){el.innerHTML=`<p class="err">${esc(s.err)}</p>`;return;}
   if(!s.results.length){el.innerHTML=s.loading?'<p class="empty">Searching…</p>':s.empty?'<p class="empty">No cards matched that search.</p>':'<p class="empty">Search by name or use Scryfall syntax.<br>Tap + on a card to add it fast, or tap the card for details.</p>';return;}
-  el.innerHTML=`<p class="sub">${s.total} card${s.total===1?'':'s'} found</p><div class="grid">`+s.results.map(resultTile).join('')+'</div>'+(s.next?`<div class="bar"><button class="btn" data-a="more" ${s.loading?'disabled':''}>${s.loading?'Loading…':'Load more'}</button></div>`:'');
+  el.innerHTML=`${s.note?`<p class="banner" style="display:block">${esc(s.note)}</p>`:''}<p class="sub">${s.total} card${s.total===1?'':'s'} found</p><div class="grid">`+s.results.map(resultTile).join('')+'</div>'+(s.next?`<div class="bar"><button class="btn" data-a="more" ${s.loading?'disabled':''}>${s.loading?'Loading…':'Load more'}</button></div>`:'');
 }
 
 /* shuffle: random cards that match your filters */
@@ -641,11 +641,14 @@ function searchAttempts(q){
   if(setTry&&(paren||known))out.push(setTry);          // a real set code: use it first
   if(nameTry)out.push(nameTry);                          // otherwise treat everything as the name
   if(setTry&&!paren&&!known&&!KNOWN_SETS)out.push(setTry); // set list unavailable: still try it
+  // nothing with that number: show every printing of the card so you can pick the right one
+  const only=clean((m&&(paren||known))?rest.slice(0,-1):rest);
+  if(only)out.push({q:`!"${only}"`,prints:true,note:`No printing numbered ${num} was found, so this shows every printing of ${only}.`});
   return out.concat(raw);
 }
 async function runSearch(more){
   const s=S.search,q=s.q.trim();if(!more&&!q){s.results=[];s.empty=false;s.err='';renderResults();return;}
-  const seq=++s.seq;s.loading=true;s.err='';s.empty=false;renderResults();
+  const seq=++s.seq;s.loading=true;s.err='';s.empty=false;if(!more)s.note='';renderResults();
   try{
     let j;
     if(more)j=await sf(s.next);
@@ -654,7 +657,7 @@ async function runSearch(more){
       if(seq!==s.seq)return;
       const tries=searchAttempts(q);let lastErr;
       for(const t of tries){
-        try{j=await sf(`/cards/search?q=${encodeURIComponent(t.q)}&unique=${(t.prints===null?s.prints:t.prints)?'prints':'cards'}&order=name`);if(seq!==s.seq)return;break;}
+        try{const wantP=t.prints===null?s.prints:t.prints;j=await sf(`/cards/search?q=${encodeURIComponent(t.q)}&unique=${wantP?'prints':'cards'}&order=name${wantP?'&include_extras=true&include_variations=true':''}`);if(seq!==s.seq)return;s.note=t.note||'';break;}
         catch(e){if(seq!==s.seq)return;lastErr=e;if(e.status!==404&&e.status!==400)throw e;}
       }
       if(!j)throw lastErr;
